@@ -1,6 +1,7 @@
 import { escapeHtml } from '../ui/primitives.js';
 import { bindDosimetryCalculator, renderDosimetryCalculator } from './dosimetry.js';
 import { renderEquipmentWorkspace } from './equipment-workspace.js';
+import { bindTreatmentWorkflow, renderTreatmentWorkflow } from './treatment-workflow.js';
 
 export function createF0Views({ state, api, showMessage, rerenderFresh }) {
   function protocolCard(protocol) {
@@ -39,20 +40,7 @@ export function createF0Views({ state, api, showMessage, rerenderFresh }) {
   }
 
   function sessions() {
-    const versions = state.protocols.flatMap((protocol) => (protocol.versions || []).map((version) => ({ protocol, version })));
-    return `<div class="page-stack"><div class="page-heading"><div><span class="eyebrow">SESSÕES F0</span><h1>Registro rastreável de aplicação</h1><p>O registro realizado permanece separado do que foi planejado.</p></div><span class="status-badge status-warning">Planejado ≠ aplicado</span></div>
-      <div class="grid two-column sessions-layout">
-        <section class="card"><span class="eyebrow">REGISTRO RASTREÁVEL</span><h2>Nova sessão</h2>
-          <label>Versão do protocolo<select name="session-protocol-version">${versions.map(({ protocol, version }) => `<option value="${escapeHtml(version.id)}">${escapeHtml(protocol.title)} · v${version.versionNumber}</option>`).join('')}</select></label>
-          <div class="form-grid"><label>Energia planejada (J)<input type="number" min="0.01" step="0.1" name="planned-energy" value="4"></label><label>Energia aplicada (J)<input type="number" min="0.01" step="0.1" name="applied-energy" value="4"></label></div>
-          <label>Motivo profissional do ajuste<input name="adjustment-reason" placeholder="Obrigatório se aplicado ≠ planejado"></label>
-          <div class="actions"><button type="button" class="primary" data-create-session>Registrar sessão</button></div>
-        </section>
-        <section class="card"><div class="section-head"><div><span class="eyebrow">HISTÓRICO</span><h2>Sessões registradas</h2></div></div>
-          <div class="version-list">${state.sessions.length ? state.sessions.map((session) => `<div class="version-item"><header><strong>${escapeHtml(session.protocolTitle || 'Sem protocolo')} · v${escapeHtml(session.protocolVersionNumber || '—')}</strong><span class="muted">${escapeHtml(session.status)}</span></header><div>Planejado: ${escapeHtml(session.plannedParameters.energyJ)} J · Aplicado: ${escapeHtml(session.appliedParameters.energyJ)} J</div>${session.professionalAdjustmentReason ? `<div><strong>Justificativa:</strong> ${escapeHtml(session.professionalAdjustmentReason)}</div>` : ''}</div>`).join('') : '<p class="muted">Nenhuma sessão registrada ainda.</p>'}</div>
-        </section>
-      </div>
-    </div>`;
+    return renderTreatmentWorkflow({ protocols: state.protocols, sessions: state.sessions });
   }
 
   function audit() {
@@ -65,6 +53,8 @@ export function createF0Views({ state, api, showMessage, rerenderFresh }) {
 
   function bindActions(root = document) {
     bindDosimetryCalculator(root);
+    bindTreatmentWorkflow(root);
+
     root.querySelectorAll('[data-select-protocol]').forEach((button) => button.addEventListener('click', () => {
       state.selectedProtocolId = button.dataset.selectProtocol;
       root.dispatchEvent(new CustomEvent('pbm:rerender'));
