@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as protocolDomain from '../src/domain/protocols.js';
 import { openDatabase } from '../src/db/database.js';
-import { createF0Service } from '../src/app/f0-service.js';
+import { createF2Service } from '../src/app/f2-service.js';
 
 function requireFunction(name) {
   assert.equal(typeof protocolDomain[name], 'function', `${name} must be implemented in F2`);
@@ -67,9 +67,10 @@ test('F2 normalizes complete PBM parameters and rejects inconsistent dose math',
 
 test('F2 stores structured indications and searches protocols by clinical context', () => {
   const db = openDatabase();
-  const service = createF0Service(db);
+  const service = createF2Service(db);
   service.ensureSeedData();
-  assert.equal(typeof service.searchProtocols, 'function', 'searchProtocols must be implemented in F2');
+  assert.equal(service.getStatus().phase, 'F2');
+  assert.equal(typeof service.searchProtocols, 'function');
 
   const protocol = service.createProtocol({
     title: 'Referência cervical F2',
@@ -102,7 +103,7 @@ test('F2 stores structured indications and searches protocols by clinical contex
 
 test('F2 copies structured indication metadata into a new immutable version when not overridden', () => {
   const db = openDatabase();
-  const service = createF0Service(db);
+  const service = createF2Service(db);
   service.ensureSeedData();
   const protocol = service.createProtocol({
     title: 'Versionamento F2',
