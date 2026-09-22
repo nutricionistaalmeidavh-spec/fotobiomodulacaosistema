@@ -14,7 +14,7 @@ test.describe('UI-3 clinical intake', () => {
     await expect(panel.getByLabel('Queixa principal')).toBeVisible();
     await expect(panel.getByLabel('Objetivo do atendimento')).toBeVisible();
     await expect(panel.getByLabel('Medicações informadas')).toBeVisible();
-    await expect(panel.getByText(/não persistido/i)).toBeVisible();
+    await expect(panel.locator('.clinical-intake-card').first().getByText(/não persistido/i)).toBeVisible();
     await expect(panel.getByRole('heading', { name: 'Checklist de segurança pré-sessão' })).toBeVisible();
     await expect(panel.getByLabel('Confirmação profissional')).toBeVisible();
   });
@@ -34,9 +34,9 @@ test.describe('UI-3 clinical intake', () => {
     await page.getByRole('tab', { name: 'Consentimentos', exact: true }).click();
     const panel = page.getByRole('tabpanel');
     await expect(panel.getByRole('heading', { name: 'Consentimento informado' })).toBeVisible();
-    await expect(panel.getByText('Pendente', { exact: true })).toBeVisible();
+    await expect(panel.locator('.status-badge').getByText('Pendente', { exact: true })).toBeVisible();
     await expect(panel.getByText(/registro local/i)).toBeVisible();
     await page.getByRole('button', { name: 'Simular consentimento coletado' }).click();
-    await expect(panel.getByText('Coletado localmente', { exact: true })).toBeVisible();
+    await expect(panel.locator('.status-badge').getByText('Coletado localmente', { exact: true })).toBeVisible();
   });
 });
