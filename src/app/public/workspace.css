@@ -1,0 +1,49 @@
+.patient-workspace { gap: 14px; }
+.workspace-back { justify-self: start; padding-left: 0; }
+.patient-context-header { display: flex; align-items: center; gap: 14px; border: 1px solid var(--pbm-border); border-radius: var(--pbm-radius-lg); padding: 16px 18px; background: var(--pbm-surface); box-shadow: var(--pbm-shadow); }
+.patient-avatar { width: 48px; height: 48px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 999px; background: var(--pbm-primary-soft); color: var(--pbm-primary-strong); font-size: 13px; font-weight: 850; letter-spacing: .05em; }
+.patient-context-copy { min-width: 0; }
+.patient-context-copy h1 { margin: 3px 0 5px; font-size: 24px; line-height: 1.1; }
+.patient-context-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 7px 12px; color: var(--pbm-muted); font-size: 12px; }
+.workspace-tabs { display: flex; gap: 4px; overflow-x: auto; padding: 4px; border: 1px solid var(--pbm-border); border-radius: 12px; background: var(--pbm-surface); scrollbar-width: thin; }
+.workspace-tabs button { min-height: 36px; flex: 0 0 auto; border: 0; border-radius: 8px; padding: 7px 11px; background: transparent; color: var(--pbm-muted); font-size: 12px; font-weight: 750; }
+.workspace-tabs button:hover { background: var(--pbm-surface-subtle); color: var(--pbm-text); }
+.workspace-tabs button.is-active { background: var(--pbm-primary-soft); color: var(--pbm-primary-strong); }
+.workspace-panel { outline: none; }
+.workspace-panel-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; }
+.workspace-main-column, .workspace-side-column { min-width: 0; display: grid; gap: 14px; align-content: start; }
+.workspace-session-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.compact-card { display: grid; gap: 8px; }
+.compact-card strong { font-size: 14px; line-height: 1.4; }
+.clinical-alerts { display: grid; gap: 8px; }
+.clinical-alert { border: 1px solid #efc9a1; border-left: 4px solid var(--pbm-warning); border-radius: 10px; padding: 12px 14px; background: var(--pbm-warning-soft); color: #6e430b; }
+.clinical-alert strong { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+.clinical-alert p { margin: 4px 0 0; color: inherit; font-size: 13px; line-height: 1.45; }
+.pending-list { margin: 10px 0 0; padding-left: 18px; color: var(--pbm-text); }
+.pending-list li + li { margin-top: 8px; }
+.patient-facts dl { display: grid; gap: 0; margin: 10px 0 0; }
+.patient-facts dl div { padding: 9px 0; border-bottom: 1px solid #edf2f0; }
+.patient-facts dl div:last-child { border-bottom: 0; }
+.patient-facts dt { color: var(--pbm-muted); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.patient-facts dd { margin: 3px 0 0; overflow-wrap: anywhere; font-size: 13px; }
+.workspace-timeline { display: grid; }
+.workspace-timeline-item { position: relative; display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 10px; min-height: 64px; padding-bottom: 12px; }
+.workspace-timeline-item strong { font-size: 13px; }
+.workspace-timeline-item p { margin: 3px 0 0; color: var(--pbm-muted); font-size: 12px; }
+.workspace-timeline-item time { color: var(--pbm-muted); font-size: 11px; white-space: nowrap; }
+.workspace-timeline-item .timeline-line { left: 8.5px; }
+.workspace-detail-card { min-height: 180px; }
+.workspace-detail-card h2 { margin-top: 5px; }
+.workspace-feature-value { margin: 12px 0; border: 1px solid var(--pbm-border); border-radius: 10px; padding: 12px; background: var(--pbm-surface-subtle); font-weight: 800; }
+
+@media (max-width: 900px) {
+  .workspace-panel-grid { grid-template-columns: 1fr; }
+  .workspace-side-column { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 700px) {
+  .patient-context-header { align-items: flex-start; }
+  .patient-context-meta { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .workspace-session-grid, .workspace-side-column { grid-template-columns: 1fr; }
+  .workspace-timeline-item { grid-template-columns: 18px minmax(0,1fr); }
+  .workspace-timeline-item time { grid-column: 2; }
+}
