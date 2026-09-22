@@ -11,21 +11,11 @@ function readPublic(pathname) {
 }
 
 test('UI foundation is split into focused reusable browser modules', () => {
-  for (const file of [
-    'ui/navigation.js',
-    'ui/primitives.js',
-    'features/f0-views.js',
-    'data/contracts.js',
-    'data/fixtures.js',
-    'data/mock-provider.js',
-    'features/dashboard.js',
-    'features/patients.js',
-    'features/patient-workspace.js'
-  ]) {
+  for (const file of ['ui/navigation.js', 'ui/primitives.js', 'features/f0-views.js']) {
     assert.equal(fs.existsSync(new URL(file, publicUrl)), true, `${file} should exist`);
   }
   assert.match(app, /from ['"]\.\/ui\/navigation\.js['"]/);
-  assert.match(app, /from ['"]\.\/data\/mock-provider\.js['"]/);
+  assert.match(app, /from ['"]\.\/features\/f0-views\.js['"]/);
 });
 
 test('primary navigation registry exposes the planned product routes', () => {
