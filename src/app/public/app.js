@@ -5,6 +5,8 @@ import {
   setMobileNavOpen
 } from './ui/navigation.js';
 import { escapeHtml } from './ui/primitives.js';
+import { createMockUiProvider } from './data/mock-provider.js';
+import { createDashboardView } from './features/dashboard.js';
 import { createF0Views } from './features/f0-views.js';
 
 const state = {
@@ -24,6 +26,7 @@ const flash = document.querySelector('#flash');
 const primaryNav = document.querySelector('#primary-navigation');
 const secondaryNav = document.querySelector('#secondary-navigation');
 const mobileNavToggle = document.querySelector('[data-mobile-nav-toggle]');
+const uiProvider = createMockUiProvider();
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -62,24 +65,8 @@ async function refreshAll() {
   document.querySelector('[data-phase-badge]').textContent = `${status.phase} concluída`;
 }
 
-function dashboardTemplate() {
-  return `<div class="page-stack">
-    <div class="page-heading"><div><span class="eyebrow">VISÃO GERAL</span><h1>Fundação clínica rastreável</h1><p>O núcleo F0 segue local e independente enquanto a experiência clínica evolui em paralelo.</p></div><span class="status-badge status-success">F0 concluída</span></div>
-    <div class="grid cards">
-      <article class="card"><span class="eyebrow">SCHEMA</span><div class="metric">${state.status.tableCount}</div><strong>19 tabelas</strong><p>Domínio clínico + controle versionado de migrations.</p></article>
-      <article class="card"><span class="eyebrow">PROTOCOLOS</span><div class="metric">${state.protocols.length}</div><strong>Versionamento imutável</strong><p>Versões antigas permanecem preservadas e sem ação de edição.</p></article>
-      <article class="card"><span class="eyebrow">SESSÕES</span><div class="metric">${state.sessions.length}</div><strong>Planejado ≠ aplicado</strong><p>Ajustes exigem justificativa profissional registrada.</p></article>
-      <article class="card"><span class="eyebrow">AUDITORIA</span><div class="metric">${state.audit.events.length}</div><strong>Auditoria append-only</strong><p>${state.audit.valid ? 'Cadeia íntegra' : 'Integridade comprometida'} por hash encadeado.</p></article>
-    </div>
-    <section class="card"><div class="section-head"><div><span class="eyebrow">ESTADO ATUAL</span><h2>F0 concluída</h2></div><span class="status-badge ${state.audit.valid ? 'status-success' : 'status-warning'}">${state.audit.valid ? 'Cadeia íntegra' : 'Revisar auditoria'}</span></div>
-      <p>A fundação continua operando com Node + SQLite. As próximas superfícies de paciente serão adicionadas por um provider de UI sem alterar o domínio F0.</p>
-      <div class="module-note">Próximo marco clínico: paciente, anamnese, prontuário/atendimento e histórico completos.</div>
-    </section>
-  </div>`;
-}
-
 function patientsTemplate() {
-  return `<div class="page-stack"><div class="page-heading"><div><span class="eyebrow">PACIENTES</span><h1>Pacientes</h1><p>A estrutura F0 abaixo permanece disponível até a nova superfície fixture-backed entrar nesta branch.</p></div><span class="status-badge status-info">Estrutura F0</span></div>
+  return `<div class="page-stack"><div class="page-heading"><div><span class="eyebrow">PACIENTES</span><h1>Pacientes</h1><p>A estrutura F0 abaixo permanece disponível até a superfície fixture-backed da próxima tarefa.</p></div><span class="status-badge status-info">Estrutura F0</span></div>
     <section class="card"><div class="table-wrap"><table><thead><tr><th>Paciente</th><th>Observação</th><th>ID</th></tr></thead><tbody>${state.patients.map((patient) => `<tr><td><strong>${escapeHtml(patient.fullName)}</strong></td><td>${escapeHtml(patient.notes || '—')}</td><td class="code">${escapeHtml(patient.id)}</td></tr>`).join('')}</tbody></table></div></section>
   </div>`;
 }
@@ -98,6 +85,16 @@ function plannedTemplate(route) {
 }
 
 const f0Views = createF0Views({ state, api, showMessage, rerenderFresh });
+const dashboardView = createDashboardView({
+  provider: uiProvider,
+  onNavigate: navigate,
+  getFoundation: () => ({
+    tableCount: state.status?.tableCount ?? 19,
+    protocolCount: state.protocols.length,
+    sessionCount: state.sessions.length,
+    auditValid: state.audit.valid
+  })
+});
 
 function renderChrome() {
   primaryNav.innerHTML = renderPrimaryNavigation(state.currentView);
@@ -111,15 +108,16 @@ function renderChrome() {
 function render() {
   renderChrome();
   const templates = {
-    dashboard: dashboardTemplate,
+    dashboard: dashboardView.render,
     patients: patientsTemplate,
     ...f0Views.templates,
     agenda: () => plannedTemplate('agenda'),
     reports: () => plannedTemplate('reports'),
     settings: () => plannedTemplate('settings')
   };
-  const template = templates[state.currentView] || dashboardTemplate;
+  const template = templates[state.currentView] || dashboardView.render;
   view.innerHTML = template();
+  dashboardView.bindActions(view);
   f0Views.bindActions(view);
 }
 
