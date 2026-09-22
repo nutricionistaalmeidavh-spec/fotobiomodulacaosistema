@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDatabase } from '../db/database.js';
-import { createF0Service } from './f0-service.js';
+import { createF2Service } from './f2-service.js';
 import { createAuthService } from './auth-service.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -61,10 +61,19 @@ function serveStatic(response, pathname) {
   fs.createReadStream(filePath).pipe(response);
 }
 
+function protocolFilters(url) {
+  const filters = {};
+  for (const key of ['query', 'condition', 'symptom', 'bodyRegion', 'therapeuticGoal', 'clinicalPhase']) {
+    const value = String(url.searchParams.get(key) ?? '').trim();
+    if (value) filters[key] = value;
+  }
+  return filters;
+}
+
 export async function createAppServer({ dbFile = path.resolve('data/fotobiomodulacao.sqlite'), port = 8788 } = {}) {
   if (dbFile !== ':memory:') fs.mkdirSync(path.dirname(path.resolve(dbFile)), { recursive: true });
   const db = openDatabase(dbFile);
-  const service = createF0Service(db);
+  const service = createF2Service(db);
   const auth = createAuthService(db);
   service.ensureSeedData();
 
@@ -143,7 +152,9 @@ export async function createAppServer({ dbFile = path.resolve('data/fotobiomodul
         }
         if (request.method === 'GET' && url.pathname === '/api/equipment') return sendJson(response, 200, { equipment: service.listEquipment() });
         if (request.method === 'GET' && url.pathname === '/api/protocols') {
-          const protocols = service.listProtocols().map((protocol) => ({ ...protocol, versions: service.listProtocolVersions(protocol.id) }));
+          const filters = protocolFilters(url);
+          const source = Object.keys(filters).length ? service.searchProtocols(filters) : service.listProtocols();
+          const protocols = source.map((protocol) => ({ ...protocol, versions: service.listProtocolVersions(protocol.id) }));
           return sendJson(response, 200, { protocols });
         }
         if (request.method === 'POST' && url.pathname === '/api/protocols') {
