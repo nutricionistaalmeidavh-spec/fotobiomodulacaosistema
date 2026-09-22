@@ -29,7 +29,7 @@ export function renderTreatmentWorkflow({ protocols = [], sessions = [] } = {}) 
     <div class="page-heading"><div><span class="eyebrow">SESSÃO CLÍNICA</span><h1>Atendimento guiado e rastreável</h1><p>O fluxo organiza o atendimento em etapas sem automatizar decisão clínica. Parâmetros planejados e aplicados permanecem separados.</p></div><span class="status-badge status-warning">Decisão profissional</span></div>
 
     <nav class="treatment-steps" aria-label="Etapas do atendimento">
-      ${TREATMENT_STAGES.map((stage, index) => `<button type="button" class="treatment-step${index === 0 ? ' is-active' : ''}" data-treatment-stage="${stage.id}" aria-current="${index === 0 ? 'step' : 'false'}"><span>${index + 1}</span>${stage.label}</button>`).join('')}
+      ${TREATMENT_STAGES.map((stage, index) => `<button type="button" aria-label="${stage.label}" class="treatment-step${index === 0 ? ' is-active' : ''}" data-treatment-stage="${stage.id}" aria-current="${index === 0 ? 'step' : 'false'}"><span aria-hidden="true">${index + 1}</span>${stage.label}</button>`).join('')}
     </nav>
 
     <section class="card treatment-stage-panel" data-treatment-panel="planning">
