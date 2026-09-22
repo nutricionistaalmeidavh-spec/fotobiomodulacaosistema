@@ -32,6 +32,8 @@ test.describe('UI-6 guided treatment workflow', () => {
     await expect(page.getByText(/Informe o motivo profissional/i)).toBeVisible();
     await page.getByLabel('Motivo profissional do ajuste').fill('Ajuste documentado no atendimento E2E');
     await page.getByRole('button', { name: 'Registrar sessão' }).click();
+    await expect(page.getByText(/Sessão registrada com parâmetros planejados e aplicados separados/i)).toBeVisible();
+    await page.getByRole('button', { name: 'Evolução', exact: true }).click();
     await expect(page.getByText('Ajuste documentado no atendimento E2E', { exact: false })).toBeVisible();
   });
 
