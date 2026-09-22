@@ -53,7 +53,7 @@ test.describe.serial('Fotobiomodulação F1 UI', () => {
     await page.locator('[name="workspace-patient-phone"]').fill('16888880000');
     await page.locator('[name="workspace-patient-notes"]').fill('Cadastro atualizado E2E');
     await page.locator('[data-update-patient]').click();
-    await expect(page.getByText('Cadastro atualizado E2E', { exact: false })).toBeVisible();
+    await expect(page.locator('.workspace-note')).toContainText('Cadastro atualizado E2E');
   });
 
   test('registra anamnese e inicia atendimento para o paciente', async ({ page }) => {
