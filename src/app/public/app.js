@@ -7,6 +7,7 @@ import {
 import { escapeHtml } from './ui/primitives.js';
 import { createMockUiProvider } from './data/mock-provider.js';
 import { createDashboardView } from './features/dashboard.js';
+import { createPatientsView } from './features/patients.js';
 import { createF0Views } from './features/f0-views.js';
 
 const state = {
@@ -65,12 +66,6 @@ async function refreshAll() {
   document.querySelector('[data-phase-badge]').textContent = `${status.phase} concluída`;
 }
 
-function patientsTemplate() {
-  return `<div class="page-stack"><div class="page-heading"><div><span class="eyebrow">PACIENTES</span><h1>Pacientes</h1><p>A estrutura F0 abaixo permanece disponível até a superfície fixture-backed da próxima tarefa.</p></div><span class="status-badge status-info">Estrutura F0</span></div>
-    <section class="card"><div class="table-wrap"><table><thead><tr><th>Paciente</th><th>Observação</th><th>ID</th></tr></thead><tbody>${state.patients.map((patient) => `<tr><td><strong>${escapeHtml(patient.fullName)}</strong></td><td>${escapeHtml(patient.notes || '—')}</td><td class="code">${escapeHtml(patient.id)}</td></tr>`).join('')}</tbody></table></div></section>
-  </div>`;
-}
-
 const plannedCopy = Object.freeze({
   agenda: ['Agenda', 'Agenda clínica preparada para receber consultas e sessões sem acoplar o frontend ao backend incompleto.'],
   reports: ['Relatórios', 'Relatórios operacionais entrarão por contratos explícitos de dados, sem dependências externas obrigatórias.'],
@@ -95,6 +90,12 @@ const dashboardView = createDashboardView({
     auditValid: state.audit.valid
   })
 });
+const patientsView = createPatientsView({
+  provider: uiProvider,
+  onOpenPatient: (patientId) => showMessage(`Workspace do paciente ${patientId} entra na próxima etapa.`, 'success'),
+  onChanged: render,
+  onMessage: showMessage
+});
 
 function renderChrome() {
   primaryNav.innerHTML = renderPrimaryNavigation(state.currentView);
@@ -109,7 +110,7 @@ function render() {
   renderChrome();
   const templates = {
     dashboard: dashboardView.render,
-    patients: patientsTemplate,
+    patients: patientsView.render,
     ...f0Views.templates,
     agenda: () => plannedTemplate('agenda'),
     reports: () => plannedTemplate('reports'),
@@ -118,6 +119,7 @@ function render() {
   const template = templates[state.currentView] || dashboardView.render;
   view.innerHTML = template();
   dashboardView.bindActions(view);
+  patientsView.bindActions(view);
   f0Views.bindActions(view);
 }
 
