@@ -3,37 +3,30 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#111827">
-  <title>ArtiSys Fotobiomodulação — F0</title>
+  <meta name="theme-color" content="#17211f">
+  <title>ArtiSys Fotobiomodulação</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <span class="brand-mark">PBM</span>
-      <div><strong>ArtiSys Fotobiomodulação</strong><small>Fundação clínica</small></div>
+  <header class="app-header">
+    <div class="header-main">
+      <a class="brand" href="/" aria-label="ArtiSys Fotobiomodulação — início">
+        <span class="brand-mark" aria-hidden="true">PBM</span>
+        <span class="brand-copy"><strong>Fotobiomodulação</strong><small>ArtiSys · ambiente clínico local</small></span>
+      </a>
+      <button type="button" class="mobile-nav-toggle" data-mobile-nav-toggle aria-expanded="false" aria-controls="primary-navigation">
+        <span aria-hidden="true">☰</span><span>Menu</span>
+      </button>
+      <nav id="primary-navigation" class="topnav" aria-label="Navegação principal"></nav>
     </div>
-    <nav class="topnav" aria-label="Módulos F0">
-      <button data-nav="dashboard" class="is-active">Dashboard</button>
-      <button data-nav="patients">Pacientes</button>
-      <button data-nav="protocols">Protocolos</button>
-      <button data-nav="equipment">Equipamentos</button>
-      <button data-nav="sessions">Sessões</button>
-      <button data-nav="audit">Auditoria</button>
-    </nav>
+    <div class="header-context">
+      <div class="phase-context"><span class="phase-dot" aria-hidden="true"></span><span data-phase-badge>Carregando…</span></div>
+      <nav id="secondary-navigation" class="secondary-nav" aria-label="Ferramentas da fundação F0"></nav>
+    </div>
   </header>
 
-  <main class="shell">
-    <section class="hero">
-      <div>
-        <span class="eyebrow">FASE 0 · FUNDAÇÃO</span>
-        <h1>Domínio clínico rastreável desde a primeira etapa</h1>
-        <p>Core local, SQLite e regras clínicas determinísticas. Nenhum serviço pago é obrigatório para executar o sistema.</p>
-      </div>
-      <span class="phase-badge" data-phase-badge>Carregando…</span>
-    </section>
-
-    <div id="flash" class="flash" role="status" hidden></div>
+  <main class="shell" id="main-content">
+    <div id="flash" class="flash" role="status" aria-live="polite" hidden></div>
     <section id="view" aria-live="polite"></section>
   </main>
 
