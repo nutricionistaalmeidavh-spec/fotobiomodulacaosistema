@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('UI-1 operational dashboard', () => {
+test.describe('UI foundation and operational dashboard', () => {
   test('loads without runtime errors and exposes operational metrics and recent activity', async ({ page }) => {
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
@@ -26,6 +26,24 @@ test.describe('UI-1 operational dashboard', () => {
   test('desktop shell has no global horizontal overflow', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/');
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(1);
+  });
+
+  test('mobile navigation is keyboard reachable, closes after selection and has no shell overflow', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    const toggle = page.getByRole('button', { name: /Menu/ });
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await toggle.focus();
+    await expect(toggle).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.locator('[data-nav="agenda"]')).toBeVisible();
+    await page.locator('[data-nav="agenda"]').click();
+    await expect(page.getByRole('heading', { name: 'Agenda', exact: true })).toBeVisible();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByText(/sem simular persistência/i)).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
   });
