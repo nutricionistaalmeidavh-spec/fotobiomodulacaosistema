@@ -65,6 +65,10 @@ function protocolCard(protocol) {
   </article>`;
 }
 
+function protocolListHtml(protocols, emptyMessage = 'Nenhum protocolo cadastrado.') {
+  return protocols.length ? protocols.map(protocolCard).join('') : `<p class="muted">${esc(emptyMessage)}</p>`;
+}
+
 function protocolWorkspaceTemplate(protocols) {
   const selected = protocols.find((item) => item.id === selectedProtocolId) || protocols[0] || null;
   if (selected && !selectedProtocolId) selectedProtocolId = selected.id;
@@ -119,7 +123,7 @@ function protocolWorkspaceTemplate(protocols) {
 
     <section class="card wide">
       <div class="section-head"><div><span class="eyebrow">BIBLIOTECA</span><h2>Protocolos versionados</h2></div><span class="status">Versionamento imutável</span></div>
-      <div class="version-list" data-protocol-list>${protocols.length ? protocols.map(protocolCard).join('') : '<p class="muted">Nenhum protocolo cadastrado.</p>'}</div>
+      <div class="version-list" data-protocol-list>${protocolListHtml(protocols)}</div>
     </section>
   </div>`;
 }
@@ -215,10 +219,8 @@ async function applyFilters() {
   for (const [key, value] of Object.entries(values)) if (String(value).trim()) params.set(key, value.trim());
   try {
     const protocols = await fetchProtocols(params.toString());
-    const visible = new Set(protocols.map((item) => item.id));
-    document.querySelectorAll('[data-protocol-card]').forEach((card) => {
-      card.hidden = !visible.has(card.dataset.protocolId);
-    });
+    const list = document.querySelector('[data-protocol-list]');
+    if (list) list.innerHTML = protocolListHtml(protocols, 'Nenhum protocolo encontrado para os filtros informados.');
   } catch (error) { show(error.message, 'warning'); }
 }
 
@@ -227,7 +229,8 @@ function clearFilters() {
     const input = document.querySelector(`[name="${name}"]`);
     if (input) input.value = '';
   }
-  document.querySelectorAll('[data-protocol-card]').forEach((card) => { card.hidden = false; });
+  const list = document.querySelector('[data-protocol-list]');
+  if (list) list.innerHTML = protocolListHtml(lastProtocols);
 }
 
 document.addEventListener('click', (event) => {
