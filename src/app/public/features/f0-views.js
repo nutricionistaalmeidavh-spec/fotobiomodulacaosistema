@@ -1,5 +1,6 @@
 import { escapeHtml } from '../ui/primitives.js';
 import { bindDosimetryCalculator, renderDosimetryCalculator } from './dosimetry.js';
+import { renderEquipmentWorkspace } from './equipment-workspace.js';
 
 export function createF0Views({ state, api, showMessage, rerenderFresh }) {
   function protocolCard(protocol) {
@@ -34,11 +35,7 @@ export function createF0Views({ state, api, showMessage, rerenderFresh }) {
   }
 
   function equipment() {
-    return `<div class="page-stack"><div class="page-heading"><div><span class="eyebrow">EQUIPAMENTOS</span><h1>Equipamentos e aplicadores</h1><p>Inventário técnico local preparado para compatibilidade e dosimetria nas próximas fases.</p></div><span class="status-badge status-info">Estrutura F0</span></div>
-      <section class="card">
-        <div class="table-wrap"><table><thead><tr><th>Equipamento</th><th>Aplicador</th><th>Comprimento de onda</th><th>Potência máx.</th></tr></thead><tbody>${state.equipment.map((item) => `<tr><td><strong>${escapeHtml(item.manufacturer)} ${escapeHtml(item.model)}</strong><div class="muted">${escapeHtml(item.serialNumber || '')}</div></td><td>${escapeHtml(item.applicator?.name || '—')}</td><td>${item.applicator?.wavelengthNm ? `${escapeHtml(item.applicator.wavelengthNm)} nm` : '—'}</td><td>${item.applicator?.maxPowerMw ? `${escapeHtml(item.applicator.maxPowerMw)} mW` : '—'}</td></tr>`).join('')}</tbody></table></div>
-      </section>
-    </div>`;
+    return renderEquipmentWorkspace(state.equipment);
   }
 
   function sessions() {
