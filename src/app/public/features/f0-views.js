@@ -1,4 +1,5 @@
 import { escapeHtml } from '../ui/primitives.js';
+import { bindDosimetryCalculator, renderDosimetryCalculator } from './dosimetry.js';
 
 export function createF0Views({ state, api, showMessage, rerenderFresh }) {
   function protocolCard(protocol) {
@@ -24,6 +25,7 @@ export function createF0Views({ state, api, showMessage, rerenderFresh }) {
           <label>Resumo da alteração<input name="version-summary" placeholder="Ex.: Ajuste documental"></label>
           <div class="actions"><button type="button" class="primary" data-create-version ${selected ? '' : 'disabled'}>Criar nova versão</button></div>
         </section>
+        ${renderDosimetryCalculator()}
         <section class="card span-all"><div class="section-head"><div><span class="eyebrow">BIBLIOTECA</span><h2>Protocolos versionados</h2></div><span class="status-badge status-info">${state.protocols.length} cadastrados</span></div>
           <div class="version-list">${state.protocols.map(protocolCard).join('')}</div>
         </section>
@@ -65,6 +67,7 @@ export function createF0Views({ state, api, showMessage, rerenderFresh }) {
   }
 
   function bindActions(root = document) {
+    bindDosimetryCalculator(root);
     root.querySelectorAll('[data-select-protocol]').forEach((button) => button.addEventListener('click', () => {
       state.selectedProtocolId = button.dataset.selectProtocol;
       root.dispatchEvent(new CustomEvent('pbm:rerender'));
