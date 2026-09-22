@@ -1,12 +1,22 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Fotobiomodulação F0 UI', () => {
-  test('expõe todas as áreas concluídas da fundação na navegação e no dashboard', async ({ page }) => {
+async function openRoute(page, route) {
+  const primary = page.locator(`[data-nav="${route}"]`);
+  if (await primary.count()) {
+    await primary.click();
+    return;
+  }
+  await page.locator(`[data-secondary-nav="${route}"]`).click();
+}
+
+test.describe('Fotobiomodulação UI smoke + F0 compatibility', () => {
+  test('expõe a navegação primária aprovada e mantém indicadores F0 no dashboard', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('body')).toHaveAttribute('data-app-ready', 'true');
     await expect(page.locator('[data-nav]')).toHaveText([
-      'Dashboard', 'Pacientes', 'Protocolos', 'Equipamentos', 'Sessões', 'Auditoria'
+      'Dashboard', 'Pacientes', 'Agenda', 'Protocolos', 'Equipamentos', 'Relatórios', 'Configurações'
     ]);
+    await expect(page.locator('[data-secondary-nav]')).toHaveText(['Sessões F0', 'Auditoria']);
     await expect(page.getByText('F0 concluída', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('19 tabelas', { exact: true })).toBeVisible();
     await expect(page.getByText('Versionamento imutável', { exact: true })).toBeVisible();
@@ -16,7 +26,7 @@ test.describe('Fotobiomodulação F0 UI', () => {
 
   test('cria protocolo e acrescenta v2 sem oferecer edição de versões antigas', async ({ page }) => {
     await page.goto('/');
-    await page.locator('[data-nav="protocols"]').click();
+    await openRoute(page, 'protocols');
     await page.locator('[name="protocol-title"]').fill('Dor cervical E2E');
     await page.locator('[name="protocol-summary"]').fill('Versão inicial E2E');
     await page.locator('[data-create-protocol]').click();
@@ -31,7 +41,7 @@ test.describe('Fotobiomodulação F0 UI', () => {
 
   test('bloqueia parâmetros aplicados diferentes sem justificativa e registra com justificativa', async ({ page }) => {
     await page.goto('/');
-    await page.locator('[data-nav="sessions"]').click();
+    await openRoute(page, 'sessions');
     await page.locator('[name="planned-energy"]').fill('4');
     await page.locator('[name="applied-energy"]').fill('5');
     await page.locator('[name="adjustment-reason"]').fill('');
@@ -45,21 +55,23 @@ test.describe('Fotobiomodulação F0 UI', () => {
 
   test('mostra cadeia de auditoria íntegra após ações na UI', async ({ page }) => {
     await page.goto('/');
-    await page.locator('[data-nav="protocols"]').click();
+    await openRoute(page, 'protocols');
     await page.locator('[name="protocol-title"]').fill('Protocolo auditável E2E');
     await page.locator('[name="protocol-summary"]').fill('Criação auditável E2E');
     await page.locator('[data-create-protocol]').click();
     await expect(page.getByText('Protocolo auditável E2E', { exact: true }).first()).toBeVisible();
-    await page.locator('[data-nav="audit"]').click();
+    await openRoute(page, 'audit');
     await expect(page.getByText('Cadeia íntegra', { exact: true })).toBeVisible();
     await expect(page.getByText('protocol.created', { exact: true }).first()).toBeVisible();
   });
 
-  test('mantém todos os módulos alcançáveis em viewport mobile sem estourar a página', async ({ page }) => {
+  test('mantém rotas primárias e ferramentas F0 alcançáveis em viewport mobile sem overflow global', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
     await expect(page.locator('body')).toHaveAttribute('data-app-ready', 'true');
-    await expect(page.locator('[data-nav]')).toHaveCount(6);
+    await expect(page.locator('[data-nav]')).toHaveCount(7);
+    await expect(page.locator('[data-secondary-nav]')).toHaveCount(2);
+    await expect(page.locator('[data-mobile-nav-toggle]')).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
   });
