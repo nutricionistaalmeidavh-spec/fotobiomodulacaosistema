@@ -23,6 +23,16 @@ test.describe('UI foundation and operational dashboard', () => {
     await expect(page.locator('[data-nav="patients"]')).toHaveAttribute('aria-current', 'page');
   });
 
+  test('planned primary routes render explicit nonblank boundaries', async ({ page }) => {
+    await page.goto('/');
+    for (const [route, title] of [['agenda', 'Agenda'], ['reports', 'Relatórios'], ['settings', 'Configurações']]) {
+      await page.locator(`[data-nav="${route}"]`).click();
+      await expect(page.getByRole('heading', { name: title, exact: true, level: 1 })).toBeVisible();
+      await expect(page.locator(`[data-planned-route="${route}"]`)).toContainText(/sem simular persistência/i);
+      await expect(page.locator(`[data-nav="${route}"]`)).toHaveAttribute('aria-current', 'page');
+    }
+  });
+
   test('desktop shell has no global horizontal overflow', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/');
