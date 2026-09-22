@@ -97,6 +97,16 @@ export function createPatientsView({ provider, onOpenPatient, onChanged, onMessa
     onChanged?.();
   }
 
+  function focusSearch(root, cursor = local.query.length) {
+    const nextSearch = root.querySelector('[data-patient-search]');
+    if (!nextSearch) return;
+    nextSearch.focus();
+    if (typeof nextSearch.setSelectionRange === 'function') {
+      const safeCursor = Math.max(0, Math.min(Number(cursor) || 0, nextSearch.value.length));
+      nextSearch.setSelectionRange(safeCursor, safeCursor);
+    }
+  }
+
   function closeDialog() {
     local.dialogOpen = false;
     local.error = '';
@@ -105,8 +115,10 @@ export function createPatientsView({ provider, onOpenPatient, onChanged, onMessa
 
   function bindActions(root = document) {
     root.querySelector('[data-patient-search]')?.addEventListener('input', (event) => {
+      const cursor = event.currentTarget.selectionStart ?? event.currentTarget.value.length;
       local.query = event.currentTarget.value;
       rerender();
+      focusSearch(root, cursor);
     });
     root.querySelector('[data-patient-status]')?.addEventListener('change', (event) => {
       local.status = event.currentTarget.value;
@@ -116,7 +128,7 @@ export function createPatientsView({ provider, onOpenPatient, onChanged, onMessa
       local.query = '';
       local.status = 'all';
       rerender();
-      root.querySelector('[data-patient-search]')?.focus();
+      focusSearch(root, 0);
     });
     root.querySelector('[data-new-patient]')?.addEventListener('click', () => {
       local.dialogOpen = true;
