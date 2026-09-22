@@ -96,13 +96,13 @@ test.describe.serial('Fotobiomodulação F1 UI', () => {
     await page.locator('[data-nav="patients"]').click();
     await page.locator('[data-patient-row]').filter({ hasText: 'Paciente E2E' }).getByRole('button', { name: 'Abrir' }).click();
     await page.locator('[data-finalize-encounter]').click();
-    await expect(page.getByText('Atendimento finalizado', { exact: false })).toBeVisible();
+    await expect(page.getByText('Atendimento finalizado', { exact: true }).first()).toBeVisible();
     await page.reload();
     await page.locator('[data-nav="patients"]').click();
     await page.locator('[data-patient-row]').filter({ hasText: 'Paciente E2E' }).getByRole('button', { name: 'Abrir' }).click();
     await expect(page.getByText('Dor cervical E2E', { exact: false })).toBeVisible();
     await expect(page.getByText('Sessão PBM', { exact: false })).toBeVisible();
-    await expect(page.getByText('Atendimento finalizado', { exact: false })).toBeVisible();
+    await expect(page.getByText('Atendimento finalizado', { exact: true }).first()).toBeVisible();
   });
 
   test('mantém as funcionalidades F0 na navegação e no dashboard', async ({ page }) => {
