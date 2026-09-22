@@ -8,6 +8,7 @@ import { escapeHtml } from './ui/primitives.js';
 import { createMockUiProvider } from './data/mock-provider.js';
 import { createDashboardView } from './features/dashboard.js';
 import { createPatientsView } from './features/patients.js';
+import { createPatientWorkspaceView } from './features/patient-workspace.js';
 import { createF0Views } from './features/f0-views.js';
 
 const state = {
@@ -92,13 +93,27 @@ const dashboardView = createDashboardView({
 });
 const patientsView = createPatientsView({
   provider: uiProvider,
-  onOpenPatient: (patientId) => showMessage(`Workspace do paciente ${patientId} entra na próxima etapa.`, 'success'),
+  onOpenPatient: openPatient,
   onChanged: render,
   onMessage: showMessage
 });
+const patientWorkspaceView = createPatientWorkspaceView({
+  provider: uiProvider,
+  onBack: () => navigate('patients'),
+  onChanged: render
+});
+
+function openPatient(patientId) {
+  patientWorkspaceView.setPatient(patientId);
+  state.currentView = 'patient-workspace';
+  state.mobileNavOpen = false;
+  showMessage('');
+  render();
+}
 
 function renderChrome() {
-  primaryNav.innerHTML = renderPrimaryNavigation(state.currentView);
+  const activePrimaryRoute = state.currentView === 'patient-workspace' ? 'patients' : state.currentView;
+  primaryNav.innerHTML = renderPrimaryNavigation(activePrimaryRoute);
   secondaryNav.innerHTML = renderSecondaryNavigation(state.currentView);
   setMobileNavOpen(state.mobileNavOpen, mobileNavToggle, primaryNav);
 
@@ -111,6 +126,7 @@ function render() {
   const templates = {
     dashboard: dashboardView.render,
     patients: patientsView.render,
+    'patient-workspace': patientWorkspaceView.render,
     ...f0Views.templates,
     agenda: () => plannedTemplate('agenda'),
     reports: () => plannedTemplate('reports'),
@@ -120,6 +136,7 @@ function render() {
   view.innerHTML = template();
   dashboardView.bindActions(view);
   patientsView.bindActions(view);
+  patientWorkspaceView.bindActions(view);
   f0Views.bindActions(view);
 }
 
