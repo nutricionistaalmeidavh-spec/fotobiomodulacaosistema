@@ -45,6 +45,19 @@
     </main>
   </div>
 
+  <script>
+    (() => {
+      let lastLoginEmail = '';
+      const root = document.querySelector('#auth-root');
+      document.addEventListener('input', (event) => {
+        if (event.target?.matches?.('[name="login-email"]')) lastLoginEmail = event.target.value;
+      }, true);
+      new MutationObserver(() => {
+        const input = root.querySelector('[name="login-email"]');
+        if (input && !input.value && lastLoginEmail) input.value = lastLoginEmail;
+      }).observe(root, { childList: true, subtree: true });
+    })();
+  </script>
   <script type="module" src="/app.js"></script>
 </body>
 </html>
