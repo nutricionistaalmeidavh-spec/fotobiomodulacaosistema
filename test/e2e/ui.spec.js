@@ -70,7 +70,7 @@ test.describe.serial('Fotobiomodulação F1 UI', () => {
     await page.locator('[data-start-encounter]').click();
     await expect(page.getByText('Dor cervical E2E', { exact: false })).toBeVisible();
     await expect(page.getByText('Dor 7/10', { exact: false })).toBeVisible();
-    await expect(page.getByText('Atendimento aberto', { exact: false })).toBeVisible();
+    await expect(page.locator('[data-patient-workspace] .status.warning')).toHaveText('Atendimento aberto');
   });
 
   test('vincula sessão PBM ao atendimento real e mostra no histórico do paciente', async ({ page }) => {
