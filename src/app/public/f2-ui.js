@@ -99,7 +99,9 @@ function ensureProtocolControls() {
       </section>`);
   }
   updateDosimetryPreview();
-  enrichProtocolCards();
+  if (document.querySelector('article.version-item:not([data-protocol-card]) [data-select-protocol]')) {
+    enrichProtocolCards();
+  }
 }
 
 function protocolMeta(protocol) {
@@ -125,11 +127,12 @@ async function enrichProtocolCards() {
     for (const protocol of result.protocols || []) {
       const button = document.querySelector(`[data-select-protocol="${CSS.escape(protocol.id)}"]`);
       const card = button?.closest('article.version-item');
-      if (!card) continue;
+      if (!card || card.hasAttribute('data-protocol-card')) continue;
       card.setAttribute('data-protocol-card', '');
       card.dataset.protocolId = protocol.id;
-      card.querySelector('.f2-protocol-meta')?.remove();
-      card.querySelector('header')?.insertAdjacentHTML('afterend', protocolMeta(protocol));
+      if (!card.querySelector('.f2-protocol-meta')) {
+        card.querySelector('header')?.insertAdjacentHTML('afterend', protocolMeta(protocol));
+      }
     }
   } catch (error) {
     show(error.message, 'warning');
