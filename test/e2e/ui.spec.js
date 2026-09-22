@@ -49,8 +49,8 @@ test.describe('Fotobiomodulação UI smoke + F0 compatibility', () => {
     await expect(page.getByText(/Informe o motivo profissional/i)).toBeVisible();
     await page.locator('[name="adjustment-reason"]').fill('Resposta clínica observada E2E');
     await page.locator('[data-create-session]').click();
-    await expect(page.getByText('Resposta clínica observada E2E', { exact: false })).toBeVisible();
-    await expect(page.getByText(/Aplicado: 5 J/i)).toBeVisible();
+    await expect(page.getByText('Resposta clínica observada E2E', { exact: false }).first()).toBeVisible();
+    await expect(page.getByText(/Aplicado: 5 J/i).first()).toBeVisible();
   });
 
   test('mostra cadeia de auditoria íntegra após ações na UI', async ({ page }) => {
