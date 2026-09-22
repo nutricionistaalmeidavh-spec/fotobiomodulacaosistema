@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <title>ArtiSys Fotobiomodulação — F0</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">PBM</span>
+      <div><strong>ArtiSys Fotobiomodulação</strong><small>Fundação clínica</small></div>
+    </div>
+    <nav class="topnav" aria-label="Módulos F0">
+      <button data-nav="dashboard" class="is-active">Dashboard</button>
+      <button data-nav="patients">Pacientes</button>
+      <button data-nav="protocols">Protocolos</button>
+      <button data-nav="equipment">Equipamentos</button>
+      <button data-nav="sessions">Sessões</button>
+      <button data-nav="audit">Auditoria</button>
+    </nav>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <span class="eyebrow">FASE 0 · FUNDAÇÃO</span>
+        <h1>Domínio clínico rastreável desde a primeira etapa</h1>
+        <p>Core local, SQLite e regras clínicas determinísticas. Nenhum serviço pago é obrigatório para executar o sistema.</p>
+      </div>
+      <span class="phase-badge" data-phase-badge>Carregando…</span>
+    </section>
+
+    <div id="flash" class="flash" role="status" hidden></div>
+    <section id="view" aria-live="polite"></section>
+  </main>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
