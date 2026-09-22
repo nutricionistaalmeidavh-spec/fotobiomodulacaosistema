@@ -4,38 +4,46 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#111827">
-  <title>ArtiSys Fotobiomodulação — F0</title>
+  <title>ArtiSys Fotobiomodulação — F1</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <span class="brand-mark">PBM</span>
-      <div><strong>ArtiSys Fotobiomodulação</strong><small>Fundação clínica</small></div>
-    </div>
-    <nav class="topnav" aria-label="Módulos F0">
-      <button data-nav="dashboard" class="is-active">Dashboard</button>
-      <button data-nav="patients">Pacientes</button>
-      <button data-nav="protocols">Protocolos</button>
-      <button data-nav="equipment">Equipamentos</button>
-      <button data-nav="sessions">Sessões</button>
-      <button data-nav="audit">Auditoria</button>
-    </nav>
-  </header>
+  <main id="auth-root" class="auth-stage" aria-live="polite"></main>
 
-  <main class="shell">
-    <section class="hero">
-      <div>
-        <span class="eyebrow">FASE 0 · FUNDAÇÃO</span>
-        <h1>Domínio clínico rastreável desde a primeira etapa</h1>
-        <p>Core local, SQLite e regras clínicas determinísticas. Nenhum serviço pago é obrigatório para executar o sistema.</p>
+  <div id="app-shell" hidden>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">PBM</span>
+        <div><strong>ArtiSys Fotobiomodulação</strong><small>Workspace clínico local</small></div>
       </div>
-      <span class="phase-badge" data-phase-badge>Carregando…</span>
-    </section>
+      <nav class="topnav" aria-label="Módulos clínicos">
+        <button data-nav="dashboard" class="is-active">Dashboard</button>
+        <button data-nav="patients">Pacientes</button>
+        <button data-nav="protocols">Protocolos</button>
+        <button data-nav="equipment">Equipamentos</button>
+        <button data-nav="sessions">Sessões</button>
+        <button data-nav="audit">Auditoria</button>
+      </nav>
+      <div class="account-chip">
+        <span data-auth-user></span>
+        <button class="secondary compact" data-logout>Sair</button>
+      </div>
+    </header>
 
-    <div id="flash" class="flash" role="status" hidden></div>
-    <section id="view" aria-live="polite"></section>
-  </main>
+    <main class="shell">
+      <section class="hero">
+        <div>
+          <span class="eyebrow">FASE 1 · WORKSPACE CLÍNICO</span>
+          <h1>Paciente, atendimento e histórico no mesmo fluxo</h1>
+          <p>Core local com autenticação própria, SQLite, rastreabilidade e zero dependência obrigatória de serviços pagos.</p>
+        </div>
+        <span class="phase-badge" data-phase-badge>Carregando…</span>
+      </section>
+
+      <div id="flash" class="flash" role="status" hidden></div>
+      <section id="view" aria-live="polite"></section>
+    </main>
+  </div>
 
   <script type="module" src="/app.js"></script>
 </body>
