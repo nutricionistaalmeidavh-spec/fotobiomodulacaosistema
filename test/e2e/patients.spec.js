@@ -25,6 +25,16 @@ test.describe('UI-1 Patients', () => {
     await expect(page.locator('[data-patient-row]')).toHaveCount(3);
   });
 
+  test('keeps search focused while typing character by character', async ({ page }) => {
+    await openPatients(page);
+    const search = page.getByRole('searchbox', { name: 'Buscar pacientes' });
+    await search.focus();
+    await page.keyboard.type('Carlos');
+    await expect(search).toHaveValue('Carlos');
+    await expect(search).toBeFocused();
+    await expect(page.locator('[data-patient-row]')).toHaveCount(1);
+  });
+
   test('validates create dialog and creates only local mock data', async ({ page }) => {
     await openPatients(page);
     await page.getByRole('button', { name: 'Novo paciente' }).click();
