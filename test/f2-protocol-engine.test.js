@@ -9,6 +9,10 @@ function requireFunction(name) {
   return protocolDomain[name];
 }
 
+function indicationContent(items) {
+  return items.map(({ id, protocolVersionId, ...rest }) => rest);
+}
+
 test('F2 calculates PBM energy from power in mW and time in seconds', () => {
   const calculateEnergyJ = requireFunction('calculateEnergyJ');
   assert.equal(calculateEnergyJ({ powerMw: 100, timeS: 40 }), 4);
@@ -109,7 +113,7 @@ test('F2 copies structured indication metadata into a new immutable version when
   service.createProtocolVersion(protocol.id, { changeSummary: 'v2 documental' });
   const versions = service.listProtocolVersions(protocol.id);
   assert.equal(versions.length, 2);
-  assert.deepEqual(versions[1].indications, versions[0].indications.map(({ id, protocolVersionId, ...rest }) => rest));
+  assert.deepEqual(indicationContent(versions[1].indications), indicationContent(versions[0].indications));
   assert.throws(() => db.prepare('UPDATE protocol_indications SET symptom = ? WHERE protocol_version_id = ?').run('alterado', versions[0].id), /immutable/i);
   db.close();
 });
