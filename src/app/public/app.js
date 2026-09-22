@@ -4,11 +4,11 @@ import {
   renderSecondaryNavigation,
   setMobileNavOpen
 } from './ui/navigation.js';
-import { escapeHtml } from './ui/primitives.js';
 import { createMockUiProvider } from './data/mock-provider.js';
 import { createDashboardView } from './features/dashboard.js';
 import { createPatientsView } from './features/patients.js';
 import { createPatientWorkspaceView } from './features/patient-workspace.js';
+import { createPlannedRoutesView } from './features/planned-routes.js';
 import { createF0Views } from './features/f0-views.js';
 
 const state = {
@@ -67,20 +67,8 @@ async function refreshAll() {
   document.querySelector('[data-phase-badge]').textContent = `${status.phase} concluída`;
 }
 
-const plannedCopy = Object.freeze({
-  agenda: ['Agenda', 'Agenda clínica preparada para receber consultas e sessões sem acoplar o frontend ao backend incompleto.'],
-  reports: ['Relatórios', 'Relatórios operacionais entrarão por contratos explícitos de dados, sem dependências externas obrigatórias.'],
-  settings: ['Configurações', 'Preferências locais e adapters opcionais serão expostos aqui conforme as próximas fases.']
-});
-
-function plannedTemplate(route) {
-  const [title, description] = plannedCopy[route] || ['Módulo', 'Superfície planejada.'];
-  return `<div class="page-stack"><div class="page-heading"><div><span class="eyebrow">EM EVOLUÇÃO</span><h1>${escapeHtml(title)}</h1><p>${escapeHtml(description)}</p></div><span class="status-badge status-neutral">Planejado</span></div>
-    <section class="empty-state"><div class="empty-state-mark" aria-hidden="true">○</div><h2>${escapeHtml(title)}</h2><p>Esta área já faz parte da arquitetura de navegação e será aprofundada sem simular persistência que ainda não existe.</p></section>
-  </div>`;
-}
-
 const f0Views = createF0Views({ state, api, showMessage, rerenderFresh });
+const plannedRoutesView = createPlannedRoutesView();
 const dashboardView = createDashboardView({
   provider: uiProvider,
   onNavigate: navigate,
@@ -128,9 +116,9 @@ function render() {
     patients: patientsView.render,
     'patient-workspace': patientWorkspaceView.render,
     ...f0Views.templates,
-    agenda: () => plannedTemplate('agenda'),
-    reports: () => plannedTemplate('reports'),
-    settings: () => plannedTemplate('settings')
+    agenda: () => plannedRoutesView.render('agenda'),
+    reports: () => plannedRoutesView.render('reports'),
+    settings: () => plannedRoutesView.render('settings')
   };
   const template = templates[state.currentView] || dashboardView.render;
   view.innerHTML = template();
