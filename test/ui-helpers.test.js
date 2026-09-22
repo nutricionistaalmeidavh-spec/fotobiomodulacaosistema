@@ -5,6 +5,7 @@ import fs from 'node:fs';
 const publicRoot = new URL('../src/app/public/', import.meta.url);
 const providerUrl = new URL('data/mock-provider.js', publicRoot);
 const patientsViewUrl = new URL('features/patients.js', publicRoot);
+const workspaceUrl = new URL('features/patient-workspace.js', publicRoot);
 
 test('mock UI provider exists and returns deterministic copied snapshots', async () => {
   assert.equal(fs.existsSync(providerUrl), true, 'data/mock-provider.js should exist');
@@ -49,4 +50,12 @@ test('patient filter is accent/case insensitive and supports status filtering', 
   assert.deepEqual(filterPatients(patients, 'souZA', 'all').map((item) => item.id), ['2']);
   assert.deepEqual(filterPatients(patients, '', 'active').map((item) => item.id), ['1']);
   assert.deepEqual(filterPatients(patients, 'não existe', 'all'), []);
+});
+
+test('patient workspace exposes the exact approved local tab registry', async () => {
+  assert.equal(fs.existsSync(workspaceUrl), true, 'features/patient-workspace.js should exist');
+  const { WORKSPACE_TABS } = await import(workspaceUrl.href);
+  assert.deepEqual(WORKSPACE_TABS.map((item) => item.id), [
+    'summary', 'anamnesis', 'protocols', 'sessions', 'evolution', 'photos', 'documents', 'consents'
+  ]);
 });
