@@ -2,20 +2,47 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const html = fs.readFileSync(new URL('../src/app/public/index.html', import.meta.url), 'utf8');
-const app = fs.readFileSync(new URL('../src/app/public/app.js', import.meta.url), 'utf8');
+const publicUrl = new URL('../src/app/public/', import.meta.url);
+const html = fs.readFileSync(new URL('index.html', publicUrl), 'utf8');
+const app = fs.readFileSync(new URL('app.js', publicUrl), 'utf8');
 
-test('UI contract keeps all F0 navigation surfaces wired', () => {
-  for (const route of ['dashboard', 'patients', 'protocols', 'equipment', 'sessions', 'audit']) {
-    assert.match(html, new RegExp(`data-nav="${route}"`));
-    assert.match(app, new RegExp(`${route}:`));
+function readPublic(pathname) {
+  return fs.readFileSync(new URL(pathname, publicUrl), 'utf8');
+}
+
+test('UI foundation is split into focused reusable browser modules', () => {
+  for (const file of [
+    'ui/navigation.js',
+    'ui/primitives.js',
+    'features/f0-views.js',
+    'data/contracts.js',
+    'data/fixtures.js',
+    'data/mock-provider.js',
+    'features/dashboard.js',
+    'features/patients.js',
+    'features/patient-workspace.js'
+  ]) {
+    assert.equal(fs.existsSync(new URL(file, publicUrl)), true, `${file} should exist`);
   }
+  assert.match(app, /from ['"]\.\/ui\/navigation\.js['"]/);
+  assert.match(app, /from ['"]\.\/data\/mock-provider\.js['"]/);
 });
 
-test('UI contract exposes the F0 clinical safety invariants', () => {
-  for (const label of ['Versionamento imutável', 'Planejado ≠ aplicado', 'Auditoria append-only']) {
-    assert.match(app, new RegExp(label));
+test('primary navigation registry exposes the planned product routes', () => {
+  const navigation = readPublic('ui/navigation.js');
+  for (const route of ['dashboard', 'patients', 'agenda', 'protocols', 'equipment', 'reports', 'settings']) {
+    assert.match(navigation, new RegExp(`['"]${route}['"]`));
   }
-  assert.match(app, /Informe o motivo profissional/);
-  assert.doesNotMatch(app, /data-edit-protocol-version/);
+  assert.match(html, /data-mobile-nav-toggle/);
+});
+
+test('F0 clinical safety surfaces remain represented after the UI refactor', () => {
+  const f0Views = readPublic('features/f0-views.js');
+  for (const label of ['Versionamento imutável', 'Planejado ≠ aplicado', 'Auditoria append-only']) {
+    assert.match(f0Views, new RegExp(label));
+  }
+  assert.match(f0Views, /Informe o motivo profissional/);
+  assert.doesNotMatch(f0Views, /data-edit-protocol-version/);
+  assert.match(f0Views, /sessions/);
+  assert.match(f0Views, /audit/);
 });
