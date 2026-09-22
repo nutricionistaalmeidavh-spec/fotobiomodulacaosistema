@@ -1,8 +1,10 @@
 # ArtiSys Fotobiomodulação
 
-Sistema clínico especializado em fotobiomodulação, construído por etapas. O repositório começa com a **F0 — Fundação técnica e domínio clínico**, já exposta em uma UI local para que cada etapa futura possa ser validada também no navegador.
+Sistema clínico especializado em fotobiomodulação, construído por etapas. A **F0 — Fundação técnica e domínio clínico** permanece concluída e protegida; em paralelo, este branch acrescenta a fundação visual **UI-0**, o fluxo **UI-1 (Dashboard + Pacientes)** e o **UI-2 (Workspace do paciente)** sem declarar o backend clínico F1 como concluído.
 
-## Estado atual — F0
+## Estado atual
+
+### F0 — fundação clínica persistida
 
 A F0 entrega:
 
@@ -15,11 +17,26 @@ A F0 entrega:
 - parâmetros planejados e efetivamente aplicados como snapshots separados;
 - justificativa profissional obrigatória quando o aplicado difere do planejado;
 - auditoria append-only com cadeia SHA-256 verificável;
-- servidor HTTP/API local sem dependência de framework externo;
-- UI responsiva com menu superior para Dashboard, Pacientes, Protocolos, Equipamentos, Sessões e Auditoria;
-- testes unitários, integração HTTP, contratos de UI e E2E em navegador.
+- servidor HTTP/API local sem dependência de framework externo.
 
-A UI de **Pacientes** e **Equipamentos** na F0 expõe a estrutura já existente no domínio e usa registros demo locais. CRUD clínico completo de pacientes/anamnese pertence à F1; motor de dosimetria e compatibilidade de equipamentos pertence às fases F2/F3.
+### UI-0 / UI-1 / UI-2 — frontend em paralelo
+
+A interface atual acrescenta:
+
+- shell responsivo com navegação superior compacta;
+- rotas primárias: Dashboard, Pacientes, Agenda, Protocolos, Equipamentos, Relatórios e Configurações;
+- Sessões F0 e Auditoria preservadas como ferramentas secundárias alcançáveis;
+- tokens semânticos próprios para superfície, texto, borda, sucesso, alerta, perigo e informação;
+- dashboard operacional com sessões do dia, pacientes ativos, retornos pendentes, protocolos recentes, ações rápidas e atividade recente;
+- diretório de pacientes com busca sem distinção de maiúsculas/minúsculas ou acentos, filtro de status e estado vazio intencional;
+- modal acessível de criação de paciente **somente no provider local de interface**;
+- escape de texto para impedir que nomes com aparência de HTML sejam executados como markup;
+- workspace centrado no paciente com oito abas locais: Resumo, Anamnese, Protocolos, Sessões, Evolução, Fotos, Documentos e Consentimentos;
+- resumo do paciente com alerta clínico, protocolo atual, última/próxima sessão, pendências e timeline;
+- estados vazios explícitos em áreas ainda sem persistência real;
+- Agenda, Relatórios e Configurações como superfícies planejadas não vazias, sem simular persistência inexistente.
+
+**Importante:** o Dashboard/Pacientes/Workspace novos usam fixtures determinísticas e um provider em memória para permitir desenvolvimento paralelo. Criar um paciente nessa UI não grava no SQLite e não significa que o CRUD clínico F1 esteja pronto. Protocolos, Equipamentos, Sessões F0 e Auditoria continuam usando a API/banco reais já existentes.
 
 ## Core R$ 0 / self-hosted / open source
 
@@ -27,6 +44,7 @@ O runtime não exige SaaS, API paga, banco gerenciado ou serviço externo.
 
 - **Runtime:** Node.js 22+ e SQLite via `node:sqlite`.
 - **Aplicação:** HTTP + HTML/CSS/JS nativos.
+- **Frontend paralelo:** ES modules nativos + provider local; sem build system ou serviço externo obrigatório.
 - **Licença do projeto:** MIT.
 - **E2E:** Playwright, apenas como dependência de desenvolvimento open source.
 - **CI no GitHub Actions:** conveniência opcional do repositório; não é dependência para executar o produto.
@@ -54,15 +72,24 @@ npm run check
 npm run smoke
 ```
 
-A suíte E2E verifica no navegador:
+A cobertura automatizada inclui:
 
-1. todas as áreas concluídas da F0 aparecem na navegação;
-2. o dashboard informa as 19 tabelas e invariantes clínicas;
-3. protocolo pode ser criado e receber v2 sem edição da v1;
-4. sessão bloqueia alteração de parâmetro sem justificativa profissional;
-5. sessão alterada é registrada com planejado e aplicado separados;
-6. auditoria aparece como cadeia íntegra após ações reais da UI;
-7. os seis módulos continuam alcançáveis em viewport mobile sem overflow global.
+- contratos de domínio e persistência F0;
+- imutabilidade de versões de protocolo;
+- separação planejado/aplicado e justificativa profissional;
+- integridade da cadeia de auditoria;
+- contratos dos módulos de UI e do provider local;
+- navegação global e ferramentas F0;
+- dashboard operacional;
+- busca/filtro de pacientes;
+- estado vazio e limpeza de busca;
+- modal de paciente, validação, cancelar/fechar e criação em memória;
+- renderização literal de conteúdo com aparência de HTML;
+- identidade do paciente e as oito abas do workspace;
+- alerta clínico, protocolo atual, pendências e timeline;
+- estados vazios de Fotos, Documentos e Consentimentos;
+- navegação mobile por teclado, fechamento do menu após seleção e ausência de overflow global;
+- superfícies planejadas sem persistência fictícia.
 
 ## Invariantes protegidas
 
@@ -76,11 +103,13 @@ A suíte E2E verifica no navegador:
 8. A cadeia de auditoria detecta adulteração.
 9. Migrações são aplicadas apenas uma vez por banco.
 10. Funcionalidades concluídas precisam continuar visíveis/operáveis na UI e cobertas por E2E.
+11. Fixtures de UI não podem ser confundidas com persistência clínica real.
 
 ## Roadmap
 
-- **F0 — concluída:** fundação, domínio, persistência, UI de validação e E2E.
-- **F1:** paciente, autenticação local, anamnese, prontuário/atendimento e histórico clínico.
+- **F0 — concluída:** fundação, domínio, persistência e invariantes clínicas.
+- **UI-0/UI-1/UI-2 — frontend paralelo entregue neste branch:** shell, dashboard, pacientes fixture-backed e workspace clínico visual com E2E.
+- **F1 — backend ainda pendente:** autenticação local, paciente persistido, anamnese, prontuário/atendimento e histórico clínico.
 - **F2:** protocolos PBM estruturados e dosimetria.
 - **F3:** equipamentos e adaptação determinística de parâmetros.
 - **F4:** marco MVP.
