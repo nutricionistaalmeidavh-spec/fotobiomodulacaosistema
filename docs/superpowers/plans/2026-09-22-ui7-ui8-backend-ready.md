@@ -36,27 +36,27 @@
 ```text
 src/app/public/
   data/
-    contracts.js                    # capability names, source constants, contract guards
-    clinical-data-gateway.js        # single feature-facing data boundary
-    operational-report.js           # pure deterministic report derivation
-    fixtures.js                     # deterministic UI-7/UI-8 seed data
+    contracts.js
+    clinical-data-gateway.js
+    operational-report.js
+    fixtures.js
     adapters/
-      f0-api-adapter.js              # only frontend file allowed to know /api/... endpoints
-      local-clinical-adapter.js      # async session-memory patient/intake/evolution/photos/agenda
+      f0-api-adapter.js
+      local-clinical-adapter.js
   features/
-    dashboard.js                    # migrate to async gateway load/cache
-    patients.js                     # migrate to async gateway load/cache
-    clinical-intake.js              # gateway-backed local async operations
-    patient-workspace.js            # orchestrates patient + UI-7 tabs
-    evolution.js                    # UI-7 evolution controller/view
-    photos.js                       # UI-7 photo metadata + local preview controller/view
-    agenda.js                       # UI-8 agenda controller/view
-    reports.js                      # UI-8 operational report controller/view
-    audit.js                        # UI-8 filtered persisted audit presentation
-    f0-views.js                     # gateway-backed protocol/equipment/session controllers
-    planned-routes.js               # settings only after agenda/reports extraction
-  app.js                            # composition/navigation only
-  clinical.css                     # UI-7/UI-8 responsive styles
+    dashboard.js
+    patients.js
+    clinical-intake.js
+    patient-workspace.js
+    evolution.js
+    photos.js
+    agenda.js
+    reports.js
+    audit.js
+    f0-views.js
+    planned-routes.js
+  app.js
+  clinical.css
 
 test/
   data-gateway.test.js
@@ -73,7 +73,7 @@ test/
 
 ---
 
-### Task 1: Data contracts, adapters and `ClinicalDataGateway`
+### Task 1: Data contracts, adapters and gateway foundation
 
 **Files:**
 - Modify: `src/app/public/data/contracts.js`
@@ -85,12 +85,12 @@ test/
 - Create: `test/local-clinical-adapter.test.js`
 
 **Interfaces:**
-- Consumes: existing F0 JSON shapes from `/api/status`, `/api/patients`, `/api/equipment`, `/api/protocols`, `/api/sessions`, `/api/audit`; existing `UI_FIXTURES` patient/intake shapes.
-- Produces: `createF0ApiAdapter({ request })`, `createLocalClinicalAdapter(seed)`, `createClinicalDataGateway({ f0Adapter, localAdapter, reportAdapter? })`. All public gateway operations return Promises, including local operations, so a future network-backed adapter can replace local storage without changing UI call sites.
+- Consumes: existing F0 JSON from `/api/status`, `/api/equipment`, `/api/protocols`, `/api/sessions`, `/api/audit`; existing `UI_FIXTURES` patient/intake shape.
+- Produces: `createF0ApiAdapter({ request })`, `createLocalClinicalAdapter(seed)`, `createClinicalDataGateway({ f0Adapter, localAdapter })`. Every public adapter/gateway method returns a Promise.
 
-- [ ] **Step 1: Write contract tests for adapter validation and source semantics**
+- [ ] **Step 1: Write failing gateway contract tests**
 
-Create `test/data-gateway.test.js` with concrete assertions:
+Create `test/data-gateway.test.js`:
 
 ```js
 import test from 'node:test';
@@ -149,9 +149,7 @@ test('gateway preserves local and persisted source metadata', async () => {
 });
 ```
 
-- [ ] **Step 2: Run the new tests to verify RED**
-
-Run:
+- [ ] **Step 2: Run RED**
 
 ```bash
 node --test test/data-gateway.test.js
@@ -159,9 +157,7 @@ node --test test/data-gateway.test.js
 
 Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `clinical-data-gateway.js`.
 
-- [ ] **Step 3: Expand `contracts.js` with exact capability registries and guards**
-
-Use this public shape:
+- [ ] **Step 3: Expand `contracts.js` with exact capabilities**
 
 ```js
 export const DATA_SOURCE = Object.freeze({ LOCAL: 'local', PERSISTED: 'persisted' });
@@ -187,11 +183,11 @@ export function assertAdapterCapabilities(name, adapter, methods) {
 }
 ```
 
-Keep `cloneUiData()` unchanged because adapters use defensive copies.
+Keep `cloneUiData()`.
 
-- [ ] **Step 4: Implement `F0ApiAdapter` as the only `/api/...` owner**
+- [ ] **Step 4: Implement `F0ApiAdapter` as the only endpoint owner**
 
-`src/app/public/data/adapters/f0-api-adapter.js` must define one request helper and map responses explicitly:
+Create `src/app/public/data/adapters/f0-api-adapter.js`:
 
 ```js
 import { DATA_SOURCE } from '../contracts.js';
@@ -218,7 +214,10 @@ export function createF0ApiAdapter({ request = fetch } = {}) {
       return { ...payload.protocol, source: DATA_SOURCE.PERSISTED };
     },
     async createProtocolVersion(protocolId, input) {
-      return json(`/api/protocols/${encodeURIComponent(protocolId)}/versions`, { method: 'POST', body: JSON.stringify(input) });
+      const payload = await json(`/api/protocols/${encodeURIComponent(protocolId)}/versions`, {
+        method: 'POST', body: JSON.stringify(input)
+      });
+      return { ...(payload.version || payload), source: DATA_SOURCE.PERSISTED };
     },
     async listEquipment() {
       const payload = await json('/api/equipment');
@@ -240,11 +239,11 @@ export function createF0ApiAdapter({ request = fetch } = {}) {
 }
 ```
 
-If the current F0 create-session response shape differs, normalize it in this adapter only and pin the exact shape in the adapter test before changing feature code.
+Before changing feature code, add request-stub tests that pin the actual create-protocol/version/session response shapes returned by the current F0 server.
 
-- [ ] **Step 5: Implement async `LocalClinicalAdapter` with deterministic IDs and validation**
+- [ ] **Step 5: Implement `LocalClinicalAdapter` with deterministic state and validation**
 
-Move the existing mock patient/intake state logic into `src/app/public/data/adapters/local-clinical-adapter.js`; add arrays `evolution`, `photos`, and `agenda` to each seed or adapter state. Required validation behavior:
+Move current mock patient/intake behavior into `src/app/public/data/adapters/local-clinical-adapter.js`; seed `evolution`, `photos` and top-level `agenda` arrays. Use:
 
 ```js
 const AGENDA_STATUSES = new Set(['scheduled', 'completed', 'cancelled']);
@@ -255,70 +254,64 @@ function required(value, message) {
   return result;
 }
 
-function agendaDate(value) {
-  const parsed = new Date(value);
+function parseAgendaDate(value) {
+  const raw = required(value, 'Informe data e hora da agenda.');
+  const parsed = new Date(raw);
   if (Number.isNaN(parsed.getTime())) throw new TypeError('Data/hora da agenda é inválida.');
-  return parsed.toISOString();
+  return raw;
 }
 ```
 
-Every returned patient/evolution/photo/agenda record must include `source: 'local'`. `updateAgendaItem()` must validate the patch before mutating the stored object.
+Validate complete patches before mutating. Every patient/evolution/photo/agenda return includes `source: 'local'`.
 
-- [ ] **Step 6: Add local-adapter tests for no-mutation-on-error**
+- [ ] **Step 6: Add no-mutation-on-error tests**
 
-Create `test/local-clinical-adapter.test.js` with at least these tests:
+Create `test/local-clinical-adapter.test.js`:
 
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createLocalClinicalAdapter } from '../src/app/public/data/adapters/local-clinical-adapter.js';
 
-const seed = { dashboard: {}, patients: [{ id: 'p1', fullName: 'Ana', status: 'active', timeline: [], clinicalIntake: { anamnesis: {}, consent: {}, safetyChecklist: {} } }] };
+const seed = {
+  dashboard: {}, agenda: [],
+  patients: [{ id: 'p1', fullName: 'Ana', status: 'active', timeline: [], evolution: [], photos: [], clinicalIntake: { anamnesis: {}, consent: {}, safetyChecklist: {} } }]
+};
 
-test('evolution rejects blank title without mutating patient evolution', async () => {
+test('evolution rejects blank title without mutation', async () => {
   const adapter = createLocalClinicalAdapter(seed);
   await assert.rejects(() => adapter.addEvolution('p1', { title: '   ', date: '2026-09-22' }), /título/i);
   assert.deepEqual(await adapter.listEvolution('p1'), []);
 });
 
-test('agenda rejects unknown status without mutating state', async () => {
+test('agenda rejects unknown status without mutation', async () => {
   const adapter = createLocalClinicalAdapter(seed);
-  await assert.rejects(() => adapter.createAgendaItem({ patientId: 'p1', startsAt: '2026-09-23T09:00:00-03:00', status: 'done-ish' }), /status/i);
+  await assert.rejects(() => adapter.createAgendaItem({ patientId: 'p1', startsAt: '2026-09-23T09:00', status: 'done-ish' }), /status/i);
   assert.deepEqual(await adapter.listAgenda(), []);
 });
 ```
 
-- [ ] **Step 7: Implement `ClinicalDataGateway` delegation and mixed report hook**
+- [ ] **Step 7: Implement gateway delegation only**
 
-Use exact constructor validation and delegation:
+Create `src/app/public/data/clinical-data-gateway.js` without report logic yet:
 
 ```js
 import { assertAdapterCapabilities, F0_ADAPTER_METHODS, LOCAL_ADAPTER_METHODS } from './contracts.js';
-import { deriveOperationalReport } from './operational-report.js';
 
-export function createClinicalDataGateway({ f0Adapter, localAdapter, reportAdapter = null }) {
+export function createClinicalDataGateway({ f0Adapter, localAdapter }) {
   assertAdapterCapabilities('f0Adapter', f0Adapter, F0_ADAPTER_METHODS);
   assertAdapterCapabilities('localAdapter', localAdapter, LOCAL_ADAPTER_METHODS);
 
   return {
     ...Object.fromEntries(LOCAL_ADAPTER_METHODS.map((name) => [name, (...args) => localAdapter[name](...args)])),
-    ...Object.fromEntries(F0_ADAPTER_METHODS.map((name) => [name, (...args) => f0Adapter[name](...args)])),
-    async getOperationalReport(filters = {}) {
-      if (reportAdapter?.getOperationalReport) return reportAdapter.getOperationalReport(filters);
-      const [patients, sessions, protocols] = await Promise.all([
-        localAdapter.listPatients(), f0Adapter.listSessions(), f0Adapter.listProtocols()
-      ]);
-      return deriveOperationalReport({ patients, sessions, protocols, filters });
-    }
+    ...Object.fromEntries(F0_ADAPTER_METHODS.map((name) => [name, (...args) => f0Adapter[name](...args)]))
   };
 }
 ```
 
-Task 6 creates `operational-report.js`; until then export a minimal `deriveOperationalReport()` from a temporary file with the stable return shape `{ period, sessionCount, activePatientCount, pendingFollowUpCount, protocolUsage, divergenceCount }`, then replace its internal logic in Task 6. Do not put placeholder text or fake metrics in production UI during Task 1.
+Reports are intentionally added in Task 6 so Task 1 has no dependency on a not-yet-created file.
 
-- [ ] **Step 8: Run Task 1 tests and the full unit suite**
-
-Run:
+- [ ] **Step 8: Run GREEN and full unit regression**
 
 ```bash
 node --test test/data-gateway.test.js test/local-clinical-adapter.test.js
@@ -326,9 +319,9 @@ npm run test:unit
 npm run check
 ```
 
-Expected: all pass; syntax check reports all JS valid.
+Expected: all pass.
 
-- [ ] **Step 9: Commit Task 1**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add src/app/public/data test/data-gateway.test.js test/local-clinical-adapter.test.js
@@ -337,7 +330,7 @@ git commit -m "feat: add clinical data gateway and adapters"
 
 ---
 
-### Task 2: Migrate existing UI-0 through UI-6 to gateway-only data access
+### Task 2: Migrate UI-0 through UI-6 to gateway-only data access
 
 **Files:**
 - Modify: `src/app/public/app.js`
@@ -346,17 +339,18 @@ git commit -m "feat: add clinical data gateway and adapters"
 - Modify: `src/app/public/features/clinical-intake.js`
 - Modify: `src/app/public/features/patient-workspace.js`
 - Modify: `src/app/public/features/f0-views.js`
-- Delete after migration: `src/app/public/data/mock-provider.js`
+- Delete: `src/app/public/data/mock-provider.js`
 - Modify: `test/ui-contract.test.js`
+- Modify: `test/data-gateway.test.js`
 - Modify: `test/e2e/f0-regression.spec.js`
 - Modify: `test/e2e/patients.spec.js`
 - Modify: `test/e2e/patient-workspace.spec.js`
 
 **Interfaces:**
-- Consumes: Task 1 `createClinicalDataGateway()`, `createF0ApiAdapter()`, `createLocalClinicalAdapter()`.
-- Produces: feature controllers whose data operations are async gateway calls; `app.js` only constructs dependencies, navigates, refreshes and renders.
+- Consumes: Task 1 adapters/gateway.
+- Produces: existing features with async `load()`/write methods backed only by `ClinicalDataGateway`; `app.js` becomes composition/navigation.
 
-- [ ] **Step 1: Add a structural test forbidding direct `/api/` calls outside the adapter**
+- [ ] **Step 1: Add structural RED test forbidding direct endpoint use**
 
 Extend `test/ui-contract.test.js`:
 
@@ -374,27 +368,17 @@ function jsFiles(dir) {
   });
 }
 
-test('only F0ApiAdapter knows frontend /api/ endpoints', () => {
+test('only F0ApiAdapter contains frontend API endpoints', () => {
   const offenders = jsFiles(frontendRoot)
     .filter((file) => file !== allowed)
-    .filter((file) => fs.readFileSync(file, 'utf8').includes("'/api/"));
+    .filter((file) => /\/api\//.test(fs.readFileSync(file, 'utf8')));
   assert.deepEqual(offenders, []);
 });
 ```
 
-- [ ] **Step 2: Run structural test to verify RED**
+Run `node --test test/ui-contract.test.js`; expected FAIL naming `app.js`.
 
-Run:
-
-```bash
-node --test test/ui-contract.test.js
-```
-
-Expected: FAIL listing `src/app/public/app.js` as an offender.
-
-- [ ] **Step 3: Compose adapters and gateway in `app.js`**
-
-Replace the generic `api()` function and mock provider construction with:
+- [ ] **Step 2: Compose the gateway in `app.js`**
 
 ```js
 import { createF0ApiAdapter } from './data/adapters/f0-api-adapter.js';
@@ -408,7 +392,7 @@ const gateway = createClinicalDataGateway({
 });
 ```
 
-Make `refreshAll()` populate only application-wide persisted snapshots through gateway methods:
+Delete the generic `api()` helper. `refreshAll()` uses only gateway F0 methods:
 
 ```js
 async function refreshAll() {
@@ -420,43 +404,37 @@ async function refreshAll() {
 }
 ```
 
-No raw HTTP path remains in `app.js`.
+- [ ] **Step 3: Convert Dashboard, Patients and Patient Workspace to async controller caches**
 
-- [ ] **Step 4: Make local feature controllers async-load their gateway data**
-
-Use the same controller pattern for Dashboard, Patients and Patient Workspace:
+Each controller owns loaded state and exposes `load()`. For Patients:
 
 ```js
 export function createPatientsView({ gateway, onOpenPatient, onChanged, onMessage }) {
   const local = { patients: [], query: '', status: 'all', dialogOpen: false, error: '' };
-
-  async function load() {
-    local.patients = await gateway.listPatients();
-  }
-
+  async function load() { local.patients = await gateway.listPatients(); }
   function render() {
     const allPatients = local.patients;
-    // existing filtering/rendering stays synchronous
+    // retain current filter/focus-safe rendering
   }
-
-  async function savePatient(input) {
-    const created = await gateway.createPatient(input);
-    await load();
-    onMessage?.(`Paciente ${created.fullName} adicionado somente ao ambiente local.`, 'success');
-    onChanged?.();
-  }
-
   return { load, render, bindActions };
 }
 ```
 
-Update event listeners that perform writes to `async` and catch errors into `onMessage` without mutating local UI as a fallback.
+Patient creation handler becomes `async`, awaits `gateway.createPatient()`, reloads, then rerenders. `patientWorkspaceView.setPatient(patientId)` becomes async and loads patient/intake through gateway.
 
-`patientWorkspaceView.setPatient(patientId)` becomes async and loads the patient through `gateway.getPatient(patientId)`. `clinical-intake.js` receives `gateway` and awaits `getClinicalIntake`/update methods.
+- [ ] **Step 4: Move Clinical Intake writes to gateway**
 
-- [ ] **Step 5: Move F0 writes in `f0-views.js` to gateway methods**
+`clinical-intake.js` receives `gateway`; write handlers use:
 
-Replace direct `api()` calls:
+```js
+await gateway.updateAnamnesis(patientId, patch);
+await gateway.updateConsent(patientId, patch);
+await gateway.updateSafetyChecklist(patientId, patch);
+```
+
+On rejection, call `onMessage(error.message)` and do not update local cached success state.
+
+- [ ] **Step 5: Move F0 writes in `f0-views.js` to gateway**
 
 ```js
 await gateway.createProtocol({ title, changeSummary });
@@ -464,14 +442,14 @@ await gateway.createProtocolVersion(state.selectedProtocolId, { changeSummary })
 await gateway.createSession({ protocolVersionId, plannedEnergyJ, appliedEnergyJ, professionalAdjustmentReason });
 ```
 
-Keep the existing client-side professional-reason guard and the backend invariant; the UI guard improves feedback but does not replace server validation.
+Keep the existing professional-reason UI guard and preserve backend validation.
 
 - [ ] **Step 6: Add persisted-write failure regression**
 
 In `test/data-gateway.test.js`:
 
 ```js
-test('persisted write failure propagates and never calls local fallback', async () => {
+test('persisted write failure propagates without local fallback', async () => {
   let localWrites = 0;
   const gateway = createClinicalDataGateway({
     f0Adapter: fakeF0({ createSession: async () => { throw new Error('backend unavailable'); } }),
@@ -482,9 +460,7 @@ test('persisted write failure propagates and never calls local fallback', async 
 });
 ```
 
-- [ ] **Step 7: Update browser setup to await feature loads before render**
-
-`navigate()` must load only the selected feature before rendering. Use an explicit dispatcher rather than hidden promises:
+- [ ] **Step 7: Make route loading explicit**
 
 ```js
 async function loadRoute(route) {
@@ -493,7 +469,7 @@ async function loadRoute(route) {
 }
 
 async function navigate(route) {
-  // existing route guard
+  // retain route validation
   state.currentView = route;
   await refreshAll();
   await loadRoute(route);
@@ -501,15 +477,13 @@ async function navigate(route) {
 }
 ```
 
-`openPatient()` becomes async, awaits `patientWorkspaceView.setPatient(patientId)`, then renders.
+`openPatient()` awaits `patientWorkspaceView.setPatient(patientId)` before render.
 
-- [ ] **Step 8: Remove `mock-provider.js` and update imports/tests**
+- [ ] **Step 8: Remove `mock-provider.js`**
 
-After no production import remains, delete `src/app/public/data/mock-provider.js`. Preserve deterministic fixture behavior in `LocalClinicalAdapter` tests rather than leaving a second local data model.
+Delete it after all imports/tests use the gateway/local adapter. There must be one local data model only.
 
-- [ ] **Step 9: Run regression suite**
-
-Run:
+- [ ] **Step 9: Run regressions**
 
 ```bash
 npm run check
@@ -518,9 +492,9 @@ npx playwright test test/e2e/patients.spec.js test/e2e/patient-workspace.spec.js
 npm run smoke
 ```
 
-Expected: all existing behaviors pass through the new gateway boundary.
+Expected: all pass.
 
-- [ ] **Step 10: Commit Task 2**
+- [ ] **Step 10: Commit**
 
 ```bash
 git add src/app/public test
@@ -536,19 +510,17 @@ git commit -m "refactor: route frontend data through clinical gateway"
 - Modify: `src/app/public/features/patient-workspace.js`
 - Modify: `src/app/public/data/fixtures.js`
 - Modify: `src/app/public/clinical.css`
-- Create: `test/e2e/evolution.spec.js`
 - Modify: `test/local-clinical-adapter.test.js`
+- Create: `test/e2e/evolution.spec.js`
 
 **Interfaces:**
 - Consumes: `gateway.listEvolution(patientId, filters?)`, `gateway.addEvolution(patientId, input)`.
 - Produces: `createEvolutionView({ gateway, patientId, onChanged, onMessage })` with `load()`, `render()`, `bindActions()`.
 
-- [ ] **Step 1: Extend local adapter unit tests for evolution filtering and source metadata**
-
-Add:
+- [ ] **Step 1: Add local-adapter filter/source tests**
 
 ```js
-test('evolution filters by category and date and marks entries local', async () => {
+test('evolution filters by category/date and remains local', async () => {
   const adapter = createLocalClinicalAdapter(seed);
   await adapter.addEvolution('p1', { date: '2026-09-20', category: 'session', title: 'Sessão 1', notes: 'Sem intercorrência' });
   await adapter.addEvolution('p1', { date: '2026-09-22', category: 'assessment', title: 'Reavaliação', notes: 'Registro descritivo' });
@@ -559,12 +531,12 @@ test('evolution filters by category and date and marks entries local', async () 
 });
 ```
 
-- [ ] **Step 2: Add RED Playwright scenarios**
+- [ ] **Step 2: Add RED E2E**
 
-`test/e2e/evolution.spec.js` must open Ana Martins, select `Evolução`, create a local record, assert visible source text, filter by category and cover an empty filter:
+`test/e2e/evolution.spec.js`:
 
 ```js
-test('adds and filters a local evolution record without claiming persistence', async ({ page }) => {
+test('adds and filters local evolution without claiming persistence', async ({ page }) => {
   await page.goto('/');
   await page.locator('[data-nav="patients"]').click();
   await page.getByRole('button', { name: 'Ana Martins', exact: true }).click();
@@ -575,26 +547,15 @@ test('adds and filters a local evolution record without claiming persistence', a
   await page.getByLabel('Observações da evolução').fill('Registro descritivo sem interpretação automática.');
   await page.getByRole('button', { name: 'Adicionar evolução' }).click();
   await expect(page.getByText('Reavaliação funcional E2E')).toBeVisible();
-  await expect(page.getByText(/Somente local|Não persistido/i)).toBeVisible();
+  await expect(page.getByText(/Somente local|não persistido/i)).toBeVisible();
   await page.getByLabel('Filtrar categoria').selectOption('session');
   await expect(page.getByText('Reavaliação funcional E2E')).toBeHidden();
 });
 ```
 
-- [ ] **Step 3: Run RED tests**
+Run unit + this E2E; expected RED because the workflow does not exist.
 
-Run:
-
-```bash
-node --test test/local-clinical-adapter.test.js
-npx playwright test test/e2e/evolution.spec.js
-```
-
-Expected: unit test fails until filter behavior exists or E2E fails because Evolution form is absent.
-
-- [ ] **Step 4: Implement `evolution.js` controller/view**
-
-Use local cached records and explicit filters:
+- [ ] **Step 3: Implement `evolution.js`**
 
 ```js
 export function createEvolutionView({ gateway, patientId, onChanged, onMessage }) {
@@ -602,7 +563,9 @@ export function createEvolutionView({ gateway, patientId, onChanged, onMessage }
 
   async function load() {
     local.records = await gateway.listEvolution(patientId, {
-      category: local.category, from: local.from || undefined, to: local.to || undefined
+      category: local.category,
+      from: local.from || undefined,
+      to: local.to || undefined
     });
   }
 
@@ -617,28 +580,24 @@ export function createEvolutionView({ gateway, patientId, onChanged, onMessage }
 }
 ```
 
-Render category options `assessment`, `session`, `follow-up`, `note`; display `source === 'local' ? 'Somente local · não persistido' : 'Persistido'` beside every entry. Do not render effectiveness or diagnosis fields.
+Render categories `assessment`, `session`, `follow-up`, `note`; each record prints `Somente local · não persistido` or `Persistido`. Do not render diagnosis/effectiveness fields.
 
-- [ ] **Step 5: Wire Evolution into Patient Workspace**
+- [ ] **Step 4: Wire the Evolution tab**
 
-On `setPatient()`, create the evolution controller; when selecting the tab, await `evolutionView.load()` before rerendering. Existing patient summary timeline stays read-only and separate.
+`patient-workspace.js` creates the controller on patient selection and awaits `evolutionView.load()` before showing the tab.
 
-- [ ] **Step 6: Add responsive styles**
+- [ ] **Step 5: Add responsive styles**
 
-In `clinical.css`, use a two-column form/list layout above 760px and one column below it. The timeline metadata must wrap, and source badges must remain text-readable.
+Use two columns above 760px and one below; timeline metadata wraps and source text remains visible.
 
-- [ ] **Step 7: Run GREEN tests and existing workspace tests**
-
-Run:
+- [ ] **Step 6: Run GREEN**
 
 ```bash
 node --test test/local-clinical-adapter.test.js
 npx playwright test test/e2e/evolution.spec.js test/e2e/patient-workspace.spec.js
 ```
 
-Expected: all pass.
-
-- [ ] **Step 8: Commit Task 3**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add src/app/public/features/evolution.js src/app/public/features/patient-workspace.js src/app/public/data/fixtures.js src/app/public/clinical.css test
@@ -647,26 +606,27 @@ git commit -m "feat: add local evolution workflow"
 
 ---
 
-### Task 4: UI-7 Photos metadata and local preview workflow
+### Task 4: UI-7 Photos metadata and local preview
 
 **Files:**
 - Create: `src/app/public/features/photos.js`
 - Modify: `src/app/public/features/patient-workspace.js`
 - Modify: `src/app/public/clinical.css`
 - Modify: `test/local-clinical-adapter.test.js`
+- Modify: `test/ui-helpers.test.js`
 - Create: `test/e2e/photos.spec.js`
 
 **Interfaces:**
-- Consumes: `gateway.listPhotos(patientId)`, `gateway.addPhotoMetadata(patientId, input)`, `gateway.removePhotoMetadata(patientId, photoId)`.
-- Produces: `createPhotosView({ gateway, patientId, onChanged, onMessage, confirmRemoval? })`.
+- Consumes: `gateway.listPhotos()`, `gateway.addPhotoMetadata()`, `gateway.removePhotoMetadata()`.
+- Produces: `createPhotosView({ gateway, patientId, onChanged, onMessage, confirmRemoval? })`, `validateLocalPhotoFile(file)`, `readLocalPhoto(file)`.
 
-- [ ] **Step 1: Add adapter tests for add/remove photo metadata**
+- [ ] **Step 1: Add adapter add/remove test**
 
 ```js
-test('photo metadata is local, copied defensively and removable', async () => {
+test('photo metadata is local and removable', async () => {
   const adapter = createLocalClinicalAdapter(seed);
   const created = await adapter.addPhotoMetadata('p1', {
-    capturedDate: '2026-09-22', region: 'ombro direito', observation: 'Vista anterior', previewDataUrl: 'data:image/png;base64,AA=='
+    capturedDate: '2026-09-22', region: 'Ombro direito', observation: 'Vista anterior', previewDataUrl: 'data:image/png;base64,AA=='
   });
   assert.equal(created.source, 'local');
   assert.equal((await adapter.listPhotos('p1')).length, 1);
@@ -675,9 +635,9 @@ test('photo metadata is local, copied defensively and removable', async () => {
 });
 ```
 
-- [ ] **Step 2: Add pure file validation in `photos.js` and unit-test through exports**
+- [ ] **Step 2: Add file validation tests**
 
-Export constants and helper:
+Implementation contract:
 
 ```js
 export const MAX_LOCAL_PHOTO_BYTES = 5 * 1024 * 1024;
@@ -689,11 +649,9 @@ export function validateLocalPhotoFile(file) {
 }
 ```
 
-Add unit assertions for `{ type: 'text/plain', size: 10 }` and `{ type: 'image/png', size: MAX_LOCAL_PHOTO_BYTES + 1 }`.
+Test a `text/plain` file and `image/png` larger than `MAX_LOCAL_PHOTO_BYTES`.
 
-- [ ] **Step 3: Add RED E2E for add/preview/source/removal confirmation**
-
-Use Playwright `setInputFiles` with a tiny PNG buffer:
+- [ ] **Step 3: Add RED E2E for preview/source/removal confirmation**
 
 ```js
 await page.getByLabel('Arquivo da foto').setInputFiles({
@@ -713,20 +671,9 @@ await page.getByRole('button', { name: /Remover foto/i }).click();
 await expect(page.getByText('Ombro direito')).toBeHidden();
 ```
 
-- [ ] **Step 4: Run RED**
+Expected RED because Photos is still empty.
 
-Run:
-
-```bash
-node --test test/local-clinical-adapter.test.js test/ui-helpers.test.js
-npx playwright test test/e2e/photos.spec.js
-```
-
-Expected: E2E fails because Photos is still an empty state.
-
-- [ ] **Step 5: Implement local preview reading and metadata controller**
-
-Use `FileReader` only in the browser feature:
+- [ ] **Step 4: Implement browser-only local preview reading**
 
 ```js
 export function readLocalPhoto(file) {
@@ -740,19 +687,17 @@ export function readLocalPhoto(file) {
 }
 ```
 
-Persist only the Data URL and metadata in the local adapter session state. The UI copy must say `Pré-visualização local · não enviada ao backend`.
+Store Data URL + metadata only in local adapter session memory. UI copy: `Pré-visualização local · não enviada ao backend`.
 
-- [ ] **Step 6: Wire Photos tab and removal confirmation**
+- [ ] **Step 5: Wire Photos and confirmation**
 
-`patient-workspace.js` creates `photosView` on patient selection; selection of the Photos tab awaits `load()`. Use `window.confirm('Remover esta foto do estado local?')` by default, injectable in unit tests.
+`patient-workspace.js` creates/loads `photosView`; default removal uses `window.confirm('Remover esta foto do estado local?')`.
 
-- [ ] **Step 7: Add mobile photo-grid styles**
+- [ ] **Step 6: Add responsive photo grid**
 
-Grid: `repeat(auto-fit, minmax(220px, 1fr))`; image uses `aspect-ratio: 4 / 3; object-fit: cover`; action buttons wrap at 390px.
+Use `repeat(auto-fit, minmax(220px, 1fr))`, `aspect-ratio: 4 / 3`, `object-fit: cover` and wrapped actions.
 
-- [ ] **Step 8: Run GREEN and regression**
-
-Run:
+- [ ] **Step 7: Run GREEN**
 
 ```bash
 npm run check
@@ -760,9 +705,7 @@ npm run test:unit
 npx playwright test test/e2e/photos.spec.js test/e2e/evolution.spec.js test/e2e/patient-workspace.spec.js
 ```
 
-Expected: all pass.
-
-- [ ] **Step 9: Commit Task 4**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add src/app/public/features/photos.js src/app/public/features/patient-workspace.js src/app/public/clinical.css test
@@ -771,7 +714,7 @@ git commit -m "feat: add local clinical photo workspace"
 
 ---
 
-### Task 5: UI-8 Agenda operational workflow
+### Task 5: UI-8 Agenda
 
 **Files:**
 - Create: `src/app/public/features/agenda.js`
@@ -783,17 +726,15 @@ git commit -m "feat: add local clinical photo workspace"
 - Create: `test/e2e/agenda.spec.js`
 
 **Interfaces:**
-- Consumes: `gateway.listAgenda(filters?)`, `gateway.createAgendaItem(input)`, `gateway.updateAgendaItem(id, patch)`, `gateway.listPatients()`.
-- Produces: `createAgendaView({ gateway, onOpenPatient, onChanged, onMessage })` with `load()`, `render()`, `bindActions()`.
+- Consumes: `gateway.listAgenda(filters?)`, `gateway.createAgendaItem()`, `gateway.updateAgendaItem()`, `gateway.listPatients()`.
+- Produces: `createAgendaView({ gateway, onOpenPatient, onChanged, onMessage })`.
 
-- [ ] **Step 1: Pin agenda validation and filter behavior in unit tests**
-
-Add tests that create valid `scheduled` items, filter by status, update to `completed`, and prove invalid date/status do not mutate:
+- [ ] **Step 1: Add agenda validation/filter tests**
 
 ```js
 test('agenda validates before mutation and supports status updates', async () => {
   const adapter = createLocalClinicalAdapter(seed);
-  const created = await adapter.createAgendaItem({ patientId: 'p1', startsAt: '2026-09-23T09:00:00-03:00', status: 'scheduled', note: 'Retorno' });
+  const created = await adapter.createAgendaItem({ patientId: 'p1', startsAt: '2026-09-23T09:00', status: 'scheduled', note: 'Retorno' });
   assert.equal(created.source, 'local');
   assert.equal((await adapter.listAgenda({ status: 'scheduled' })).length, 1);
   const updated = await adapter.updateAgendaItem(created.id, { status: 'completed' });
@@ -804,9 +745,9 @@ test('agenda validates before mutation and supports status updates', async () =>
 });
 ```
 
-- [ ] **Step 2: Add RED Agenda E2E**
+Add a separate invalid-date assertion proving `createAgendaItem()` leaves list length unchanged.
 
-Test the real route is no longer `data-planned-route="agenda"`, create an item for Ana, filter scheduled, update completed, then open the linked patient:
+- [ ] **Step 2: Add RED E2E**
 
 ```js
 await page.locator('[data-nav="agenda"]').click();
@@ -818,21 +759,12 @@ await page.getByRole('button', { name: 'Adicionar à agenda' }).click();
 await expect(page.getByText(/Somente local/i)).toBeVisible();
 ```
 
-- [ ] **Step 3: Run RED tests**
+Expected RED because Agenda is still placeholder.
 
-```bash
-node --test test/local-clinical-adapter.test.js
-npx playwright test test/e2e/agenda.spec.js
-```
-
-Expected: E2E fails because Agenda is still a planned placeholder.
-
-- [ ] **Step 4: Implement `agenda.js` with cached patients/items**
-
-Controller state:
+- [ ] **Step 3: Implement `agenda.js`**
 
 ```js
-const local = { items: [], patients: [], status: 'all', from: '', to: '', dialogOpen: false, error: '' };
+const local = { items: [], patients: [], status: 'all', from: '', to: '', error: '' };
 
 async function load() {
   [local.patients, local.items] = await Promise.all([
@@ -842,26 +774,24 @@ async function load() {
 }
 ```
 
-Display `Agendado`, `Concluído`, `Cancelado`, local source text and linked patient action. No scheduling status copy may imply clinical outcome.
+Render `scheduled/completed/cancelled` as `Agendado/Concluído/Cancelado`, always print `Somente local · não persistido`, and never infer clinical outcome from status.
 
-- [ ] **Step 5: Replace Agenda route composition in `app.js`**
+- [ ] **Step 4: Replace Agenda placeholder in `app.js`**
 
-Instantiate `agendaView` and route `agenda` to `agendaView.render`. `navigate('agenda')` awaits `agendaView.load()`. Remove Agenda from `PLANNED_ROUTES`; keep Settings there.
+Instantiate `agendaView`, route `agenda` to it, await `agendaView.load()` in `loadRoute()`, remove `agenda` from `PLANNED_ROUTES`.
 
-- [ ] **Step 6: Wire linked patient navigation and async status writes**
+- [ ] **Step 5: Wire linked patient/status actions**
 
-`data-open-agenda-patient` calls existing async `openPatient(patientId)`. Status buttons call `await gateway.updateAgendaItem(id, { status })`, reload and rerender.
+Patient action calls existing async `openPatient(patientId)`. Status action awaits `gateway.updateAgendaItem(id, { status })`, reloads and rerenders.
 
-- [ ] **Step 7: Add 390px agenda layout and overflow E2E**
-
-At 390px, toolbar and agenda rows become stacked cards; E2E asserts:
+- [ ] **Step 6: Add 390px layout and overflow test**
 
 ```js
 const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
 expect(overflow).toBe(false);
 ```
 
-- [ ] **Step 8: Run GREEN**
+- [ ] **Step 7: Run GREEN**
 
 ```bash
 npm run check
@@ -869,9 +799,7 @@ npm run test:unit
 npx playwright test test/e2e/agenda.spec.js test/e2e/ui-foundation.spec.js
 ```
 
-Expected: all pass.
-
-- [ ] **Step 9: Commit Task 5**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add src/app/public/features/agenda.js src/app/public/app.js src/app/public/features/planned-routes.js src/app/public/data/fixtures.js src/app/public/clinical.css test
@@ -880,13 +808,13 @@ git commit -m "feat: add backend-ready clinical agenda"
 
 ---
 
-### Task 6: UI-8 Reports and filtered persisted Audit
+### Task 6: UI-8 Reports and persisted Audit through gateway
 
 **Files:**
 - Create: `src/app/public/data/operational-report.js`
+- Modify: `src/app/public/data/clinical-data-gateway.js`
 - Create: `src/app/public/features/reports.js`
 - Create: `src/app/public/features/audit.js`
-- Modify: `src/app/public/data/clinical-data-gateway.js`
 - Modify: `src/app/public/features/f0-views.js`
 - Modify: `src/app/public/features/planned-routes.js`
 - Modify: `src/app/public/app.js`
@@ -896,10 +824,10 @@ git commit -m "feat: add backend-ready clinical agenda"
 - Create: `test/e2e/audit-gateway.spec.js`
 
 **Interfaces:**
-- Consumes: gateway `getOperationalReport(filters)`, `getAuditState()`.
-- Produces: `deriveOperationalReport({ patients, sessions, protocols, filters })`, `createReportsView(...)`, `createAuditView(...)`.
+- Consumes: existing gateway methods `listPatients()`, `listSessions()`, `listProtocols()`, `getAuditState()`.
+- Produces: `deriveOperationalReport(...)`, gateway `getOperationalReport(filters)`, `createReportsView(...)`, `createAuditView(...)`.
 
-- [ ] **Step 1: Write deterministic report tests including invalid period**
+- [ ] **Step 1: Write RED report tests**
 
 Create `test/operational-report.test.js`:
 
@@ -917,7 +845,7 @@ const sessions = [
   { createdAt: '2026-09-21T10:00:00Z', protocolTitle: 'Cervical', plannedParameters: { energyJ: 4 }, appliedParameters: { energyJ: 4 } }
 ];
 
-test('derives descriptive operational metrics for a valid period', () => {
+test('derives descriptive operational metrics', () => {
   const report = deriveOperationalReport({ patients, sessions, protocols: [], filters: { from: '2026-09-20', to: '2026-09-21' } });
   assert.equal(report.sessionCount, 2);
   assert.equal(report.activePatientCount, 1);
@@ -926,7 +854,7 @@ test('derives descriptive operational metrics for a valid period', () => {
   assert.deepEqual(report.protocolUsage, [{ protocol: 'Cervical', count: 2 }]);
 });
 
-test('rejects an inverted report period', () => {
+test('rejects an inverted period', () => {
   assert.throws(
     () => deriveOperationalReport({ patients, sessions, protocols: [], filters: { from: '2026-09-22', to: '2026-09-20' } }),
     /Período inválido/
@@ -934,17 +862,11 @@ test('rejects an inverted report period', () => {
 });
 ```
 
-- [ ] **Step 2: Run report unit tests RED**
+Run and expect `ERR_MODULE_NOT_FOUND`.
 
-```bash
-node --test test/operational-report.test.js
-```
+- [ ] **Step 2: Implement pure report derivation**
 
-Expected: FAIL until the pure derivation exists.
-
-- [ ] **Step 3: Implement pure report derivation**
-
-Normalize dates to start/end-of-day boundaries, filter sessions only, count active patients/pending items from current patient snapshot, count divergences by comparing numeric planned/applied energy, and sort protocol usage by count descending then protocol name ascending. Return:
+Return exactly:
 
 ```js
 {
@@ -957,15 +879,35 @@ Normalize dates to start/end-of-day boundaries, filter sessions only, count acti
 }
 ```
 
-No efficacy field is allowed.
+Filter sessions by inclusive calendar dates; active patients/pending follow-ups come from current patient snapshot; divergence compares numeric planned/applied energy; protocol usage sorts count descending then protocol name ascending. No efficacy field.
 
-- [ ] **Step 4: Add RED E2E for Reports**
+- [ ] **Step 3: Extend gateway with optional report adapter and derived fallback**
 
-`reports.spec.js` asserts Reports no longer uses planned placeholder, renders the five operational sections, changing period updates the session count, and the copy includes `descritivo` or `não é recomendação clínica`.
+Modify constructor:
 
-- [ ] **Step 5: Implement `reports.js` controller**
+```js
+import { deriveOperationalReport } from './operational-report.js';
 
-Use:
+export function createClinicalDataGateway({ f0Adapter, localAdapter, reportAdapter = null }) {
+  // existing validation
+  return {
+    // existing delegations
+    async getOperationalReport(filters = {}) {
+      if (reportAdapter?.getOperationalReport) return reportAdapter.getOperationalReport(filters);
+      const [patients, sessions, protocols] = await Promise.all([
+        localAdapter.listPatients(), f0Adapter.listSessions(), f0Adapter.listProtocols()
+      ]);
+      return deriveOperationalReport({ patients, sessions, protocols, filters });
+    }
+  };
+}
+```
+
+Add gateway test proving an injected `reportAdapter.getOperationalReport()` is used when present, so a future persisted reports backend changes composition, not UI.
+
+- [ ] **Step 4: Add RED Reports E2E and implement `reports.js`**
+
+E2E asserts `reports` is no longer a planned route, renders session/active/pending/protocol/divergence metrics, and copy states the report is descriptive/non-recommendation. Controller:
 
 ```js
 async function load() {
@@ -979,11 +921,11 @@ async function load() {
 }
 ```
 
-Render validation error inside the report surface rather than allowing it to escape to application initialization.
+Inverted date range renders `Período inválido` inside the report card rather than breaking navigation.
 
-- [ ] **Step 6: Extract audit presentation into `audit.js` and add filters**
+- [ ] **Step 5: Extract persisted Audit to `audit.js`**
 
-`createAuditView({ gateway, onChanged, onMessage })` stores `{ audit, action: 'all', entity: 'all', order: 'desc' }`. `load()` always calls `await gateway.getAuditState()`; render uses only those persisted events. Filter helper is pure and exported for unit testing:
+Export:
 
 ```js
 export function filterAuditEvents(events, { action = 'all', entity = 'all', order = 'desc' } = {}) {
@@ -997,27 +939,25 @@ export function filterAuditEvents(events, { action = 'all', entity = 'all', orde
 }
 ```
 
-The integrity badge continues to derive only from `audit.valid`; never from a local adapter.
+`createAuditView({ gateway, onChanged, onMessage })` always loads with `gateway.getAuditState()`. Integrity badge derives only from persisted `audit.valid`.
 
-- [ ] **Step 7: Add Audit gateway E2E**
+- [ ] **Step 6: Add Audit E2E**
 
-Create `audit-gateway.spec.js`: create a real protocol through the Protocols UI, open Audit, assert `Cadeia íntegra`, find `protocol.created`, apply action filter, and verify the hash text remains visible for the matching event.
+Create a real protocol through the Protocols UI, open Audit, assert `Cadeia íntegra`, filter `protocol.created`, and verify entity/hash remain visible. This proves the extracted view still reads the real chain.
 
-- [ ] **Step 8: Remove Reports placeholder and old inline audit renderer**
+- [ ] **Step 7: Replace Reports placeholder and inline Audit**
 
-Instantiate `reportsView` and `auditView` in `app.js`. Remove `reports` from `PLANNED_ROUTES`. Remove `audit()` from `f0-views.js`; keep only protocols/equipment/sessions there.
+Instantiate `reportsView` and `auditView` in `app.js`; remove `reports` from `PLANNED_ROUTES`; remove inline `audit()` from `f0-views.js`.
 
-- [ ] **Step 9: Run Task 6 GREEN**
+- [ ] **Step 8: Run GREEN**
 
 ```bash
-node --test test/operational-report.test.js test/ui-contract.test.js
+node --test test/operational-report.test.js test/data-gateway.test.js test/ui-contract.test.js
 npx playwright test test/e2e/reports.spec.js test/e2e/audit-gateway.spec.js test/e2e/f0-regression.spec.js
 npm run check
 ```
 
-Expected: all pass.
-
-- [ ] **Step 10: Commit Task 6**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add src/app/public/data src/app/public/features src/app/public/app.js src/app/public/clinical.css test
@@ -1026,22 +966,22 @@ git commit -m "feat: add operational reports and gateway audit view"
 
 ---
 
-### Task 7: Final backend-readiness hardening, docs and complete verification
+### Task 7: Final backend-readiness hardening and documentation
 
 **Files:**
 - Modify: `README.md`
-- Modify: `docs/reuse-map.md` if current module inventory needs updating
+- Modify: `docs/reuse-map.md` if the module inventory is listed there
 - Modify: `test/ui-contract.test.js`
 - Modify: `test/e2e/ui-foundation.spec.js`
 - Modify: `src/app/public/clinical.css` only if final browser checks expose layout regressions
 
 **Interfaces:**
-- Consumes: completed gateway/adapters and UI-7/UI-8 modules.
-- Produces: documented backend integration contract and a fully green branch suitable for future persisted-adapter work.
+- Consumes: completed Tasks 1-6.
+- Produces: documented async adapter contract and a fully green branch ready for future persisted adapters.
 
-- [ ] **Step 1: Expand structural contract tests for backend readiness**
+- [ ] **Step 1: Harden structural contract tests**
 
-Add assertions that:
+Add:
 
 ```js
 const adapterText = fs.readFileSync('src/app/public/data/adapters/f0-api-adapter.js', 'utf8');
@@ -1049,25 +989,28 @@ assert.match(adapterText, /\/api\/protocols/);
 assert.match(adapterText, /\/api\/sessions/);
 assert.match(adapterText, /\/api\/audit/);
 
-for (const feature of [
-  'features/evolution.js', 'features/photos.js', 'features/agenda.js',
-  'features/reports.js', 'features/audit.js'
-]) {
-  const text = fs.readFileSync(path.join(frontendRoot, feature), 'utf8');
+for (const feature of ['evolution.js', 'photos.js', 'agenda.js', 'reports.js', 'audit.js']) {
+  const text = fs.readFileSync(path.join(frontendRoot, 'features', feature), 'utf8');
   assert.doesNotMatch(text, /\/api\//);
   assert.match(text, /gateway/);
 }
+assert.equal(fs.existsSync('src/app/public/data/mock-provider.js'), false);
 ```
 
-Also assert `mock-provider.js` no longer exists.
+- [ ] **Step 2: Add final desktop/mobile integration traversal**
 
-- [ ] **Step 2: Add final desktop/mobile integration checks**
+Extend `ui-foundation.spec.js` to visit Dashboard, Patients, Agenda, Reports, Protocols, Equipment, Sessions and Audit at desktop and `390x844`. For each route:
 
-Extend `ui-foundation.spec.js` to visit Dashboard, Patients, Agenda, Reports, Protocols, Equipment, Sessions and Audit at desktop and at `390x844`, asserting `documentElement.scrollWidth <= clientWidth` on each route. Patient workspace additionally visits Evolution and Photos tabs.
+```js
+const hasOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+expect(hasOverflow).toBe(false);
+```
 
-- [ ] **Step 3: Update README with exact persistence matrix**
+Patient workspace additionally opens Evolution and Photos.
 
-Document a table with these rows:
+- [ ] **Step 3: Document exact persistence matrix in README**
+
+Add:
 
 ```markdown
 | Capability | Current source | Future integration point |
@@ -1078,16 +1021,14 @@ Document a table with these rows:
 | Audit | Persisted F0 SQLite API | `F0ApiAdapter` |
 | Patients / intake | Local session memory | replace local capability adapter |
 | Evolution | Local session memory | implement persisted evolution adapter |
-| Photos | Local metadata + Data URL preview | implement metadata API + object storage adapter |
+| Photos | Local metadata + Data URL preview | implement metadata API + object-storage adapter |
 | Agenda | Local session memory | implement persisted agenda adapter |
 | Reports | Derived through gateway from available data | optional persisted reports adapter |
 ```
 
-Explain that UI contracts are async and adapter substitution must preserve the method signatures in `contracts.js`.
+State that UI contracts are Promise-based and future adapters must preserve method names/signatures from `contracts.js`.
 
-- [ ] **Step 4: Run the complete verification suite from a fresh branch head**
-
-Run exactly:
+- [ ] **Step 4: Run complete CI-equivalent suite**
 
 ```bash
 npm run check
@@ -1096,48 +1037,36 @@ npm run test:e2e
 npm run smoke
 ```
 
-Expected:
-- syntax check passes;
-- every unit/domain/contract test passes;
-- every Playwright test passes;
-- smoke prints `F0 OK: 19 tabelas carregadas.`;
-- no test is skipped to obtain green.
+Expected: all pass; smoke prints `F0 OK: 19 tabelas carregadas.`; no test is skipped to obtain green.
 
-- [ ] **Step 5: Inspect final diff for source-truth mistakes**
-
-Run:
+- [ ] **Step 5: Inspect final diff for source-truth and clinical-boundary mistakes**
 
 ```bash
 git diff main...HEAD -- src/app/public README.md test
 ```
 
-Check specifically that:
-- `local` records are never labeled persisted;
-- no feature contains `/api/`;
-- no local write is used as fallback for a failed F0 write;
-- no efficacy/diagnosis/recommendation wording was introduced;
-- all destructive photo removal paths require confirmation.
+Verify: no local record labeled persisted; no feature `/api/`; no local fallback for failed F0 writes; no efficacy/diagnosis/recommendation wording; every destructive photo removal requires confirmation.
 
-- [ ] **Step 6: Commit final docs/hardening**
+- [ ] **Step 6: Commit final hardening/docs**
 
 ```bash
 git add README.md docs/reuse-map.md src/app/public test
 git commit -m "docs: finalize backend-ready frontend architecture"
 ```
 
-- [ ] **Step 7: Re-run complete CI-equivalent suite on the exact final SHA**
+- [ ] **Step 7: Re-run exact final SHA verification**
 
 ```bash
 npm run check && npm run test:unit && npm run test:e2e && npm run smoke
 ```
 
-Expected: all green on the final commit SHA. Record the SHA and CI run ID before any integration decision.
+Record final SHA and CI run ID before integration.
 
 ---
 
 ## Self-Review Result
 
-- **Spec coverage:** Gateway/adapters, UI-7 Evolution/Photos, UI-8 Agenda/Reports/Audit, local/persisted source semantics, error handling, accessibility/mobile, documentation and full regression coverage each map to a concrete task above.
-- **Placeholder scan:** No `TBD`, `TODO`, deferred implementation step, or unnamed error-handling instruction remains in the plan.
-- **Type/signature consistency:** All feature-facing data methods are Promise-returning through `ClinicalDataGateway`; local and F0 adapters expose the names registered in `contracts.js`; report derivation returns one stable metric shape consumed by Reports.
-- **Review Focus coverage:** missing adapter capability (Task 1), persisted write failure (Task 2), invalid/oversized photo (Task 4), invalid agenda status/date (Task 5), and inverted report period (Task 6) each have an explicit test.
+- **Spec coverage:** Gateway/adapters, UI-7 Evolution/Photos, UI-8 Agenda/Reports/Audit, source semantics, errors, accessibility/mobile, docs and regressions all map to explicit tasks.
+- **Placeholder scan:** No deferred implementation file, `TBD`, `TODO`, or unnamed validation/error-handling step remains.
+- **Type/signature consistency:** Task 1 creates only adapter delegation; Task 6 creates `operational-report.js` and only then extends gateway with `getOperationalReport()`. All data methods remain Promise-based from UI perspective.
+- **Review Focus coverage:** partial adapter (Task 1), persisted write failure (Task 2), invalid/oversized photo (Task 4), invalid agenda status/date (Task 5), inverted report period (Task 6) each has explicit tests.
