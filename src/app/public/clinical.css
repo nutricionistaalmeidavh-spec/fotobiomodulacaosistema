@@ -1,0 +1,224 @@
+.clinical-intake-stack,
+.safety-checklist,
+.equipment-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.clinical-form-grid {
+  align-items: start;
+}
+
+.check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 0;
+  border: 1px solid var(--pbm-border);
+  border-radius: var(--pbm-radius-md);
+  padding: 11px 12px;
+  background: var(--pbm-surface-subtle);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.check-row input {
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  flex: 0 0 auto;
+  margin: 1px 0 0;
+  padding: 0;
+}
+
+.consent-summary,
+.dosimetry-results,
+.equipment-specs {
+  display: grid;
+  gap: 10px;
+}
+
+.consent-summary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 14px;
+}
+
+.consent-summary > div,
+.equipment-specs > div {
+  min-width: 0;
+  border: 1px solid var(--pbm-border);
+  border-radius: var(--pbm-radius-md);
+  padding: 11px 12px;
+  background: var(--pbm-surface-subtle);
+}
+
+.consent-summary span,
+.consent-summary strong {
+  display: block;
+}
+
+.consent-summary strong {
+  margin-top: 4px;
+}
+
+.dosimetry-card {
+  grid-column: 1 / -1;
+}
+
+.dosimetry-output {
+  min-height: 52px;
+  margin-top: 14px;
+  border: 1px solid var(--pbm-border);
+  border-radius: var(--pbm-radius-md);
+  padding: 12px;
+  background: var(--pbm-surface-subtle);
+}
+
+.dosimetry-results {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dosimetry-results strong {
+  min-width: 0;
+  border-right: 1px solid var(--pbm-border);
+  padding-right: 10px;
+}
+
+.dosimetry-results strong:last-child {
+  border-right: 0;
+}
+
+.field-error {
+  margin: 0 0 8px;
+  color: var(--pbm-danger);
+  font-weight: 700;
+}
+
+.equipment-grid {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.equipment-specs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 14px 0;
+}
+
+.equipment-specs dt {
+  color: var(--pbm-muted);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.equipment-specs dd {
+  margin: 5px 0 0;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.treatment-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.treatment-step {
+  min-width: 0;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--pbm-border);
+  border-radius: var(--pbm-radius-md);
+  padding: 8px 10px;
+  background: var(--pbm-surface);
+  color: var(--pbm-muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.treatment-step span {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--pbm-surface-subtle);
+  border: 1px solid var(--pbm-border);
+  font-size: 11px;
+}
+
+.treatment-step:hover {
+  border-color: var(--pbm-primary);
+  color: var(--pbm-text);
+}
+
+.treatment-step.is-active {
+  border-color: var(--pbm-primary);
+  background: var(--pbm-primary-soft);
+  color: var(--pbm-primary-strong);
+}
+
+.treatment-step.is-active span {
+  border-color: var(--pbm-primary);
+  background: var(--pbm-primary);
+  color: var(--pbm-surface);
+}
+
+.treatment-stage-panel[hidden] {
+  display: none;
+}
+
+.treatment-stage-panel {
+  min-height: 250px;
+}
+
+.session-safety-list {
+  margin-top: 14px;
+}
+
+@media (max-width: 760px) {
+  .clinical-form-grid,
+  .consent-summary,
+  .dosimetry-grid,
+  .dosimetry-results,
+  .equipment-specs {
+    grid-template-columns: 1fr;
+  }
+
+  .dosimetry-results strong {
+    border-right: 0;
+    border-bottom: 1px solid var(--pbm-border);
+    padding: 0 0 9px;
+  }
+
+  .dosimetry-results strong:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .equipment-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .treatment-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .treatment-step:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 420px) {
+  .treatment-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .treatment-step:last-child {
+    grid-column: auto;
+  }
+}
