@@ -1,5 +1,6 @@
 import { assertUiProvider } from '../data/contracts.js';
 import { emptyState, escapeHtml, statusBadge } from '../ui/primitives.js';
+import { createClinicalIntakePanels } from './clinical-intake.js';
 
 export const WORKSPACE_TABS = Object.freeze([
   { id: 'summary', label: 'Resumo' },
@@ -12,13 +13,15 @@ export const WORKSPACE_TABS = Object.freeze([
   { id: 'consents', label: 'Consentimentos' }
 ]);
 
-export function createPatientWorkspaceView({ provider, onBack, onChanged }) {
+export function createPatientWorkspaceView({ provider, onBack, onChanged, onMessage }) {
   assertUiProvider(provider);
   const local = { patientId: null, activeTab: 'summary' };
+  let intakePanels = null;
 
   function setPatient(patientId) {
     local.patientId = patientId;
     local.activeTab = 'summary';
+    intakePanels = createClinicalIntakePanels({ provider, patientId, onChanged, onMessage });
   }
 
   function renderTimeline(patient) {
@@ -58,8 +61,8 @@ export function createPatientWorkspaceView({ provider, onBack, onChanged }) {
     </div>`;
   }
 
-  function anamnesis(patient) {
-    return `<section class="card workspace-detail-card"><span class="eyebrow">ANAMNESE</span><h2>Anamnese clínica</h2><p>Superfície preparada para histórico, queixa principal, objetivo do atendimento e critérios de segurança. Os dados persistidos entram na F1; aqui há apenas contexto visual.</p><div class="module-note">Paciente em contexto: ${escapeHtml(patient.fullName)}. Nenhum dado clínico novo é gravado por esta tela nesta etapa.</div></section>`;
+  function anamnesis() {
+    return intakePanels?.anamnesis() || emptyState({ title: 'Anamnese indisponível', description: 'Selecione novamente o paciente para carregar o contexto local.' });
   }
 
   function protocols(patient) {
@@ -83,7 +86,7 @@ export function createPatientWorkspaceView({ provider, onBack, onChanged }) {
   }
 
   function consents() {
-    return emptyState({ title: 'Nenhum consentimento registrado', description: 'Termos e consentimentos serão apresentados com status e histórico sem simular aceite ou assinatura nesta etapa.' });
+    return intakePanels?.consents() || emptyState({ title: 'Nenhum consentimento registrado', description: 'Termos e consentimentos serão apresentados com status e histórico sem simular aceite ou assinatura nesta etapa.' });
   }
 
   function activePanel(patient) {
@@ -113,6 +116,7 @@ export function createPatientWorkspaceView({ provider, onBack, onChanged }) {
       local.activeTab = button.dataset.workspaceTab;
       onChanged?.();
     }));
+    intakePanels?.bindActions(root);
   }
 
   return { render, bindActions, setPatient };
