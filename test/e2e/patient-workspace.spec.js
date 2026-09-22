@@ -15,7 +15,7 @@ test.describe('UI-2 patient workspace', () => {
       'Resumo', 'Anamnese', 'Protocolos', 'Sessões', 'Evolução', 'Fotos', 'Documentos', 'Consentimentos'
     ]);
     await expect(page.locator('[data-nav="patients"]')).toHaveAttribute('aria-current', 'page');
-    await expect(page.getByText('carlos.menezes@example.test', { exact: true })).toBeVisible();
+    await expect(page.locator('.patient-context-header').getByText('carlos.menezes@example.test', { exact: true })).toBeVisible();
   });
 
   test('summary shows clinical warning, current protocol, pending work and timeline', async ({ page }) => {
