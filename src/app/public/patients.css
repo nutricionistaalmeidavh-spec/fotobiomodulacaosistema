@@ -1,0 +1,25 @@
+.patient-directory { display: grid; gap: 14px; }
+.patient-toolbar { display: grid; grid-template-columns: minmax(260px, 1fr) auto auto; gap: 10px; align-items: end; }
+.search-control, .status-filter { margin: 0; }
+.status-filter { display: grid; grid-template-columns: auto minmax(120px, 150px); align-items: center; gap: 8px; color: var(--pbm-muted); font-size: 12px; }
+.status-filter select { min-height: 40px; }
+.patient-table { min-width: 760px; }
+.patient-secondary { margin-top: 3px; font-size: 11px; }
+.row-link { border: 0; background: transparent; padding: 0; color: var(--pbm-primary-strong); font-weight: 800; text-align: left; }
+.row-link:hover { text-decoration: underline; }
+.compact-button { min-height: 32px; padding: 5px 9px; font-size: 12px; }
+.visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
+
+@media (max-width: 760px) {
+  .patient-toolbar { grid-template-columns: 1fr; align-items: stretch; }
+  .status-filter { grid-template-columns: auto 1fr; }
+  .patient-table-wrap { overflow: visible; }
+  .patient-table { min-width: 0; }
+  .patient-table thead { display: none; }
+  .patient-table, .patient-table tbody, .patient-table tr, .patient-table td { display: block; width: 100%; }
+  .patient-table tbody { display: grid; gap: 10px; }
+  .patient-table tr { border: 1px solid var(--pbm-border); border-radius: 12px; padding: 12px; background: #fbfcfc; }
+  .patient-table td { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px; padding: 7px 0; border-bottom: 1px solid #edf2f0; }
+  .patient-table td:last-child { border-bottom: 0; }
+  .patient-table td::before { content: attr(data-label); color: var(--pbm-muted); font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+}
