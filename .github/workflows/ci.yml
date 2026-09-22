@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'feat/**']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dev dependencies
+        run: npm install
+      - name: Install Chromium for E2E
+        run: npx playwright install --with-deps chromium
+      - name: Syntax check
+        run: npm run check
+      - name: Unit and domain tests
+        run: npm run test:unit
+      - name: Browser E2E
+        run: npm run test:e2e
+      - name: Smoke
+        run: npm run smoke

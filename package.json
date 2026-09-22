@@ -1,0 +1,20 @@
+{
+  "name": "artisys-fotobiomodulacao",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "dev": "node src/app/cli.js",
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "node --test test/*.test.js",
+    "test:e2e": "playwright test",
+    "check": "node scripts/check.js",
+    "smoke": "node scripts/smoke.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
+  }
+}
