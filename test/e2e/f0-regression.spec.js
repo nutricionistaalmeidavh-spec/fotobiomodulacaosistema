@@ -27,13 +27,18 @@ test.describe('F0 regressions after UI foundation refactor', () => {
   test('session adjustment still requires a professional reason', async ({ page }) => {
     await page.goto('/');
     await openRoute(page, 'sessions');
-    await page.locator('[name="planned-energy"]').fill('4');
-    await page.locator('[name="applied-energy"]').fill('5');
-    await page.locator('[name="adjustment-reason"]').fill('');
-    await page.locator('[data-create-session]').click();
+    await page.getByRole('button', { name: 'Planejamento', exact: true }).click();
+    await page.getByLabel('Energia planejada (J)').fill('4');
+    await page.getByRole('button', { name: 'Aplicação', exact: true }).click();
+    await page.getByLabel('Energia aplicada (J)').fill('5');
+    await page.getByRole('button', { name: 'Registro', exact: true }).click();
+    await page.getByLabel('Motivo profissional do ajuste').fill('');
+    await page.getByRole('button', { name: 'Registrar sessão' }).click();
     await expect(page.getByText(/Informe o motivo profissional/i)).toBeVisible();
-    await page.locator('[name="adjustment-reason"]').fill('Resposta clínica observada E2E');
-    await page.locator('[data-create-session]').click();
+    await page.getByLabel('Motivo profissional do ajuste').fill('Resposta clínica observada E2E');
+    await page.getByRole('button', { name: 'Registrar sessão' }).click();
+    await expect(page.getByText(/Sessão registrada com parâmetros planejados e aplicados separados/i)).toBeVisible();
+    await page.getByRole('button', { name: 'Evolução', exact: true }).click();
     await expect(page.getByText('Resposta clínica observada E2E', { exact: false })).toBeVisible();
     await expect(page.getByText(/Aplicado: 5 J/i)).toBeVisible();
   });

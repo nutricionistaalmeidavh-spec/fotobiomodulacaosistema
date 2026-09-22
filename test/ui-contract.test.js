@@ -35,11 +35,14 @@ test('planned route module exposes nonblank boundaries without fake persistence'
 
 test('F0 clinical safety surfaces remain represented after the UI refactor', () => {
   const f0Views = readPublic('features/f0-views.js');
-  for (const label of ['Versionamento imutável', 'Planejado ≠ aplicado', 'Auditoria append-only']) {
-    assert.match(f0Views, new RegExp(label));
-  }
+  const treatmentWorkflow = readPublic('features/treatment-workflow.js');
+  assert.match(f0Views, /Versionamento imutável/);
+  assert.match(f0Views, /Auditoria append-only/);
+  assert.match(treatmentWorkflow, /Parâmetros planejados e aplicados permanecem separados/i);
+  assert.match(treatmentWorkflow, /Planejado/);
+  assert.match(treatmentWorkflow, /Aplicado/);
   assert.match(f0Views, /Informe o motivo profissional/);
   assert.doesNotMatch(f0Views, /data-edit-protocol-version/);
-  assert.match(f0Views, /sessions/);
+  assert.match(f0Views, /renderTreatmentWorkflow/);
   assert.match(f0Views, /audit/);
 });

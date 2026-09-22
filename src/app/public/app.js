@@ -88,7 +88,8 @@ const patientsView = createPatientsView({
 const patientWorkspaceView = createPatientWorkspaceView({
   provider: uiProvider,
   onBack: () => navigate('patients'),
-  onChanged: render
+  onChanged: render,
+  onMessage: showMessage
 });
 
 function openPatient(patientId) {
