@@ -17,7 +17,7 @@ test.describe('UI-5 equipment workspace', () => {
   test('equipment screen remains usable on mobile without global overflow', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
-    await page.getByRole('button', { name: 'Abrir menu' }).click();
+    await page.getByRole('button', { name: /Menu/ }).click();
     await page.locator('[data-nav="equipment"]').click();
     await expect(page.locator('[data-equipment-card]').first()).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
