@@ -76,7 +76,9 @@ test.describe.serial('Fotobiomodulação F1 UI', () => {
   test('vincula sessão PBM ao atendimento real e mostra no histórico do paciente', async ({ page }) => {
     await login(page);
     await page.locator('[data-nav="sessions"]').click();
-    await page.locator('[name="session-encounter"]').selectOption({ label: /Paciente E2E/ });
+    const encounterValue = await page.locator('[name="session-encounter"] option').filter({ hasText: 'Paciente E2E' }).getAttribute('value');
+    expect(encounterValue).toBeTruthy();
+    await page.locator('[name="session-encounter"]').selectOption(encounterValue);
     await page.locator('[name="planned-energy"]').fill('4');
     await page.locator('[name="applied-energy"]').fill('5');
     await page.locator('[name="adjustment-reason"]').fill('Resposta clínica observada E2E');
