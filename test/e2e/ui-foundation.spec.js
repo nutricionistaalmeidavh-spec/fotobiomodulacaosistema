@@ -41,7 +41,7 @@ test.describe('UI foundation and operational dashboard', () => {
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     await expect(page.locator('[data-nav="agenda"]')).toBeVisible();
     await page.locator('[data-nav="agenda"]').click();
-    await expect(page.getByRole('heading', { name: 'Agenda', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Agenda', exact: true, level: 1 })).toBeVisible();
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
     await expect(page.getByText(/sem simular persistência/i)).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
