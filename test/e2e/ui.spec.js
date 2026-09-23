@@ -68,14 +68,13 @@ test.describe.serial('Fotobiomodulação F3 UI', () => {
     await page.locator('[name="encounter-pain-score"]').fill('7');
     await page.locator('[name="encounter-notes"]').fill('Atendimento E2E');
     await page.locator('[data-start-encounter]').click();
-    await expect(page.getByText('Dor cervical E2E', { exact: false })).toBeVisible();
+    await expect(page.getByText('Dor cervical E2E', { exact: false }).first()).toBeVisible();
     await expect(page.getByText('Dor 7/10', { exact: false })).toBeVisible();
     await expect(page.locator('[data-patient-workspace] .status.warning')).toHaveText('Atendimento aberto');
   });
 
   test('vincula sessão PBM ao atendimento real e mostra no histórico do paciente', async ({ page }) => {
-    await login(page);
-    await page.locator('[data-nav="sessions"]').click();
+    await login(page);\n    await page.locator('[data-nav="sessions"]').click();
     const encounterValue = await page.locator('[name="session-encounter"] option').filter({ hasText: 'Paciente E2E' }).getAttribute('value');
     expect(encounterValue).toBeTruthy();
     await page.locator('[name="session-encounter"]').selectOption(encounterValue);
@@ -100,7 +99,7 @@ test.describe.serial('Fotobiomodulação F3 UI', () => {
     await page.reload();
     await page.locator('[data-nav="patients"]').click();
     await page.locator('[data-patient-row]').filter({ hasText: 'Paciente E2E' }).getByRole('button', { name: 'Abrir' }).click();
-    await expect(page.getByText('Dor cervical E2E', { exact: false })).toBeVisible();
+    await expect(page.getByText('Dor cervical E2E', { exact: false }).first()).toBeVisible();
     await expect(page.getByText('Sessão PBM', { exact: false })).toBeVisible();
     await expect(page.getByText('Atendimento finalizado', { exact: true }).first()).toBeVisible();
   });
