@@ -21,12 +21,17 @@ function jsFiles(dir) {
 }
 
 test('UI foundation is split into focused reusable browser modules', () => {
-  for (const file of ['ui/navigation.js', 'ui/primitives.js', 'features/f0-views.js', 'features/audit.js', 'features/planned-routes.js']) {
+  for (const file of [
+    'ui/navigation.js', 'ui/primitives.js', 'features/f0-views.js', 'features/evolution.js',
+    'features/photos.js', 'features/agenda.js', 'features/reports.js', 'features/audit.js', 'features/planned-routes.js'
+  ]) {
     assert.equal(fs.existsSync(new URL(file, publicUrl)), true, `${file} should exist`);
   }
   assert.match(app, /from ['"]\.\/ui\/navigation\.js['"]/);
   assert.match(app, /from ['"]\.\/features\/f0-views\.js['"]/);
   assert.match(app, /from ['"]\.\/features\/audit\.js['"]/);
+  assert.match(app, /from ['"]\.\/features\/reports\.js['"]/);
+  assert.match(app, /from ['"]\.\/features\/agenda\.js['"]/);
 });
 
 test('primary navigation registry exposes the planned product routes', () => {
@@ -37,9 +42,11 @@ test('primary navigation registry exposes the planned product routes', () => {
   assert.match(html, /data-mobile-nav-toggle/);
 });
 
-test('settings remains an explicit planned boundary without fake persistence', () => {
+test('settings remains the only explicit planned primary boundary', () => {
   const planned = readPublic('features/planned-routes.js');
   assert.match(planned, /settings/);
+  assert.doesNotMatch(planned, /agenda:/);
+  assert.doesNotMatch(planned, /reports:/);
   assert.match(planned, /sem simular persistência/i);
 });
 
@@ -64,4 +71,20 @@ test('only F0ApiAdapter contains frontend API endpoints', () => {
     .filter((file) => file !== allowed)
     .filter((file) => /\/api\//.test(fs.readFileSync(file, 'utf8')));
   assert.deepEqual(offenders, []);
+
+  const adapter = fs.readFileSync(allowed, 'utf8');
+  for (const endpoint of ['/api/protocols', '/api/sessions', '/api/audit']) assert.match(adapter, new RegExp(endpoint));
+});
+
+test('backend-ready feature modules depend on the gateway rather than transport details', () => {
+  for (const file of ['features/evolution.js', 'features/photos.js', 'features/agenda.js', 'features/reports.js', 'features/audit.js']) {
+    const source = readPublic(file);
+    assert.match(source, /gateway/, `${file} should consume the gateway`);
+    assert.doesNotMatch(source, /\/api\//, `${file} must not contain transport endpoints`);
+  }
+});
+
+test('retired mock provider cannot return as a second data boundary', () => {
+  assert.equal(fs.existsSync(new URL('data/mock-provider.js', publicUrl)), false);
+  assert.match(readPublic('data/clinical-data-gateway.js'), /createClinicalDataGateway/);
 });
