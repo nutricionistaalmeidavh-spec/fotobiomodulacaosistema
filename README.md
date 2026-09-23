@@ -2,7 +2,7 @@
 
 Sistema clínico especializado em fotobiomodulação, local/self-hosted, construído por fases com rastreabilidade clínica e sem dependência obrigatória de SaaS ou API paga.
 
-## Estado atual — F0 a F5 concluídas
+## Estado atual — F0 a F7 concluídas
 
 A implementação atual cobre:
 
@@ -19,6 +19,8 @@ A implementação atual cobre:
 - backup local consistente do SQLite via `VACUUM INTO`, arquivos clínicos e manifesto SHA-256;
 - desfechos longitudinais, séries temporais e comparação descritiva;
 - linha do tempo clínica unificada;
+- biblioteca científica local, pesquisável e vinculada a versões exatas de protocolo;
+- mapa corporal SVG local para registrar localização anatômica confirmada pelo profissional;
 - auditoria append-only com cadeia de integridade verificável;
 - UI responsiva, incluindo fluxo mobile;
 - testes unitários/domain/HTTP, E2E Chromium e smoke em CI.
@@ -69,6 +71,18 @@ Cada desfecho pode ser vinculado ao paciente, atendimento e sessão, registra o 
 
 A comparação é **descritiva**. O sistema não afirma que uma mudança clínica foi causada pelo tratamento.
 
+### F6 — Biblioteca científica
+
+Adiciona uma biblioteca local de referências científicas com título, autores, ano, fonte, tipo de estudo, DOI/URL, resumo e metadados estruturados por condição, região corporal e comprimento de onda.
+
+Uma referência pode ser vinculada a uma `ProtocolVersion` exata com relação documental `supports`, `context` ou `contradicts`. O vínculo é auditado e **não altera parâmetros do protocolo**, não gera ranking terapêutico e não recomenda dose.
+
+### F7 — Mapa corporal
+
+Adiciona um catálogo anatômico local e um mapa SVG com vistas anterior/posterior, região, lateralidade e coordenadas normalizadas. O profissional seleciona e confirma a localização aplicada em uma sessão real.
+
+O registro reutiliza `application_points.coordinates_json`, preservando o histórico existente. O mapa corporal **não sugere ponto, protocolo, dose ou conduta**.
+
 ## Limites clínicos de segurança
 
 1. O sistema não prescreve automaticamente.
@@ -82,6 +96,8 @@ A comparação é **descritiva**. O sistema não afirma que uma mudança clínic
 9. Consentimentos e eventos de auditoria preservam histórico append-only.
 10. Documentos clínicos finalizados são imutáveis.
 11. Evolução longitudinal não produz diagnóstico nem inferência automática de causalidade.
+12. Evidência científica é referência documental e não modifica silenciosamente o protocolo.
+13. O mapa corporal registra localização confirmada pelo profissional e não sugere tratamento.
 
 ## Core R$ 0 / self-hosted
 
@@ -92,6 +108,8 @@ O runtime não exige serviço externo obrigatório.
 - **Servidor/UI:** HTTP + HTML/CSS/JavaScript nativos.
 - **Arquivos clínicos:** armazenamento local configurável.
 - **PDF:** geração local sem API externa.
+- **Biblioteca científica:** persistência e busca locais em SQLite.
+- **Mapa corporal:** SVG/JavaScript local, sem serviço externo.
 - **Backup:** snapshot SQLite local + arquivos + manifesto de integridade.
 - **E2E:** Playwright como dependência de desenvolvimento.
 - **CI:** GitHub Actions é conveniência do repositório, não requisito do produto.
@@ -115,6 +133,6 @@ npm run test:e2e
 npm run smoke
 ```
 
-A suíte cobre regressão das fases anteriores e fluxos reais no navegador, incluindo autenticação, prontuário, protocolo/dosimetria, equipamento/adaptação, sessão PBM, consentimento, pontos de aplicação, mídia, PDF, backup, evolução longitudinal e auditoria.
+A suíte cobre regressão das fases anteriores e fluxos reais no navegador, incluindo autenticação, prontuário, protocolo/dosimetria, equipamento/adaptação, sessão PBM, consentimento, pontos de aplicação, mídia, PDF, backup, evolução longitudinal, biblioteca científica, vínculo de evidência, mapa corporal e auditoria.
 
 Documentação técnica adicional está em `docs/`.
