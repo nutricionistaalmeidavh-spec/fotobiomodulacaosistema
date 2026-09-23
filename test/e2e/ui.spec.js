@@ -74,7 +74,8 @@ test.describe.serial('Fotobiomodulação F3 UI', () => {
   });
 
   test('vincula sessão PBM ao atendimento real e mostra no histórico do paciente', async ({ page }) => {
-    await login(page);\n    await page.locator('[data-nav="sessions"]').click();
+    await login(page);
+    await page.locator('[data-nav="sessions"]').click();
     const encounterValue = await page.locator('[name="session-encounter"] option').filter({ hasText: 'Paciente E2E' }).getAttribute('value');
     expect(encounterValue).toBeTruthy();
     await page.locator('[name="session-encounter"]').selectOption(encounterValue);
