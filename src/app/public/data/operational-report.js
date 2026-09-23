@@ -57,7 +57,7 @@ export function deriveOperationalReport({ patients = [], sessions = [], protocol
     period,
     sessionCount: selectedSessions.length,
     activePatientCount: patients.filter((patient) => patient.status === 'active').length,
-    pendingFollowUpCount: patients.filter((patient) => Array.isArray(patient.pendingItems) && patient.pendingItems.length > 0).length,
+    pendingFollowUpCount: patients.filter((patient) => patient.status === 'active' && Array.isArray(patient.pendingItems) && patient.pendingItems.length > 0).length,
     divergenceCount: selectedSessions.filter(energyDiverges).length,
     protocolUsage
   };
