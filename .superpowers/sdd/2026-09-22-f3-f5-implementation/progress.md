@@ -15,3 +15,4 @@ Ruling: F4 includes basic narrative evolution entries in the patient workspace b
 
 Task 1: complete (RED 5bb2854: missing equipment.notes; GREEN ce989b0; CI 35801065744: syntax/unit/E2E/smoke success)
 Task 2: complete (RED e5e4935: equipment-adaptation module absent; GREEN 1efbbc7; CI 35801288001: syntax/unit/E2E/smoke success)
+Task 3: complete (service/API RED d6e6dc9; UI RED aa7094f: missing F3 workspace; GREEN cb6fa9b; CI 35802598220: syntax/unit/E2E/smoke success; 39 unit/HTTP + 12 Chromium E2E)
