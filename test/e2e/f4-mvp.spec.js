@@ -31,7 +31,7 @@ test('F4 fecha o MVP clínico e F5 registra evolução longitudinal sem inferir 
   await page.locator('[name="encounter-pain-score"]').fill('6');
   await page.locator('[name="encounter-notes"]').fill('Atendimento MVP F4');
   await page.locator('[data-start-encounter]').click();
-  await expect(page.getByText('Dor cervical MVP F4', { exact: false })).toBeVisible();
+  await expect(page.getByText('Dor cervical MVP F4', { exact: false }).first()).toBeVisible();
 
   await page.locator('[data-nav="protocols"]').click();
   const versionValue = await page.locator('[name="adaptation-protocol-version"] option').filter({ hasText: 'Cervicalgia F2 E2E' }).getAttribute('value');
