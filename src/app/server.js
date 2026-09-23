@@ -155,6 +155,11 @@ export async function createAppServer({
           const encounter = service.finalizeEncounter(decodeURIComponent(finalizeMatch[1]), actorId);
           return sendJson(response, 200, { encounter });
         }
+        const encounterPdfMatch = url.pathname.match(/^\/api\/encounters\/([^/]+)\/pdf$/);
+        if (request.method === 'POST' && encounterPdfMatch) {
+          const document = service.finalizeEncounterPdf(decodeURIComponent(encounterPdfMatch[1]), actorId);
+          return sendJson(response, 201, { document });
+        }
         if (request.method === 'GET' && url.pathname === '/api/encounters/open') {
           return sendJson(response, 200, { encounters: service.listOpenEncounters() });
         }
@@ -242,6 +247,10 @@ export async function createAppServer({
         if (request.method === 'POST' && url.pathname === '/api/sessions') {
           const session = service.createTreatmentSession(await readJson(request), actorId);
           return sendJson(response, 201, { session });
+        }
+        if (request.method === 'POST' && url.pathname === '/api/backup') {
+          const backup = service.createLocalBackup(actorId);
+          return sendJson(response, 201, { backup });
         }
         if (request.method === 'GET' && url.pathname === '/api/audit') return sendJson(response, 200, service.getAudit());
         return sendJson(response, 404, { error: 'API route not found' });
