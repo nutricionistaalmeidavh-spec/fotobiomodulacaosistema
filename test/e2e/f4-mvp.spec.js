@@ -13,7 +13,7 @@ async function login(page) {
   await expect(page.locator('body')).toHaveAttribute('data-app-ready', 'true');
 }
 
-test('F4 fecha o MVP clínico no workspace real do paciente', async ({ page }) => {
+test('F4 fecha o MVP clínico e F5 registra evolução longitudinal sem inferir causalidade', async ({ page }) => {
   await login(page);
 
   await page.locator('[data-nav="patients"]').click();
@@ -92,6 +92,62 @@ test('F4 fecha o MVP clínico no workspace real do paciente', async ({ page }) =
 
   await page.locator('[data-create-backup-f4]').click();
   await expect(page.locator('[data-f4-backup-status]')).toContainText('Backup verificado');
+
+  await expect(page.locator('[data-f5-evolution]')).toBeVisible();
+  await expect(page.locator('[data-phase-badge]')).toContainText('F5');
+
+  await page.locator('[name="f5-outcome-type"]').selectOption('vas_pain');
+  await page.locator('[name="f5-outcome-value"]').fill('8');
+  await page.locator('[name="f5-outcome-group"]').fill('cervical-f5-e2e');
+  await page.locator('[name="f5-outcome-narrative"]').fill('Dor registrada antes da nova sessão.');
+  await page.locator('[data-record-outcome-f5]').click();
+  await expect(page.locator('[data-f5-feedback]')).toContainText('Evolução registrada');
+
+  await page.locator('[data-nav="sessions"]').click();
+  await page.locator('[name="session-encounter"]').selectOption(encounterValue);
+  await page.locator('[name="session-protocol-version"]').selectOption(versionValue);
+  await page.locator('[name="planned-energy"]').fill('4');
+  await page.locator('[name="applied-energy"]').fill('4');
+  await page.locator('[data-create-session]').click();
+
+  await page.locator('[data-nav="patients"]').click();
+  await page.locator('[data-patient-row]').filter({ hasText: 'Paciente MVP F4' }).getByRole('button', { name: 'Abrir' }).click();
+  await expect(page.locator('[data-f5-evolution]')).toBeVisible();
+
+  await page.locator('[name="f5-outcome-type"]').selectOption('vas_pain');
+  await page.locator('[name="f5-outcome-value"]').fill('5');
+  await page.locator('[name="f5-outcome-group"]').fill('cervical-f5-e2e');
+  await page.locator('[name="f5-outcome-narrative"]').fill('Dor registrada no acompanhamento posterior.');
+  await page.locator('[data-record-outcome-f5]').click();
+
+  await page.locator('[name="f5-outcome-type"]').selectOption('rom');
+  await page.locator('[name="f5-outcome-value"]').fill('70');
+  await page.locator('[name="f5-outcome-unit"]').fill('deg');
+  await page.locator('[name="f5-outcome-group"]').fill('cervical-rom-f5');
+  await page.locator('[name="f5-outcome-narrative"]').fill('Amplitude cervical registrada.');
+  await page.locator('[data-record-outcome-f5]').click();
+
+  await page.locator('[name="f5-series-type"]').selectOption('vas_pain');
+  await page.locator('[name="f5-series-group"]').fill('cervical-f5-e2e');
+  await page.locator('[data-load-series-f5]').click();
+
+  const points = page.locator('[data-f5-series-point]');
+  await expect(points).toHaveCount(2);
+  await expect(points.nth(0)).toContainText('8');
+  await expect(points.nth(1)).toContainText('5');
+  await expect(page.locator('[data-f5-comparison]')).toContainText('8 → 5');
+  await expect(page.locator('[data-f5-comparison]')).toContainText('Comparação descritiva');
+  await expect(page.locator('[data-f5-chart] svg polyline')).toHaveCount(1);
+
+  const evolutionText = await page.locator('[data-f5-evolution]').innerText();
+  expect(evolutionText).not.toMatch(/causou|devido ao tratamento|tratamento resultou/i);
+
+  const timeline = page.locator('[data-f5-timeline]');
+  await expect(timeline).toContainText('Avaliação clínica');
+  await expect(timeline).toContainText('Sessão PBM');
+  await expect(timeline).toContainText('Desfecho clínico');
+  await expect(timeline).toContainText('Imagem clínica');
+  await expect(timeline).toContainText('70 deg');
 
   await page.locator('[data-nav="audit"]').click();
   for (const action of ['consent.accepted', 'application_point.created', 'clinical_media.created', 'outcome.recorded', 'document.finalized', 'backup.created']) {
