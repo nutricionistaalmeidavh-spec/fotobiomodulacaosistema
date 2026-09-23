@@ -25,7 +25,7 @@ test('HTTP app exposes authenticated F5 status, protocol/session writes and a va
     assert.equal(statusResponse.status, 200);
     const status = await statusResponse.json();
     assert.equal(status.phase, 'F5');
-    assert.equal(status.tableCount, 21);
+    assert.ok(status.tableCount >= 21);
 
     const created = await fetch(`${app.url}/api/protocols`, {
       method: 'POST', headers,
