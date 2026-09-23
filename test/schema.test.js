@@ -31,6 +31,17 @@ test('F5 outcomes link the responsible professional and longitudinal grouping me
   assert.ok(indexes.includes('idx_outcomes_patient_type_time'));
 });
 
+test('F6 schema adds scientific evidence sources and exact protocol-version links', () => {
+  const db = openDatabase(':memory:');
+  const tables = listTables(db);
+  assert.ok(tables.includes('evidence_sources'));
+  assert.ok(tables.includes('protocol_evidence_links'));
+  const evidenceColumns = db.prepare("PRAGMA table_info('evidence_sources')").all().map((row) => row.name);
+  for (const column of ['title','publication_year','study_type','conditions_json','body_regions_json','wavelengths_json']) {
+    assert.ok(evidenceColumns.includes(column), `missing evidence column: ${column}`);
+  }
+});
+
 test('protocol versions are immutable after creation', () => {
   const db = openDatabase(':memory:');
   db.prepare("INSERT INTO professionals(id,name) VALUES('p1','Profissional')").run();
@@ -46,11 +57,11 @@ test('audit events are append-only', () => {
   assert.throws(() => db.prepare("UPDATE audit_events SET action='update' WHERE id='a1'").run(), /append-only/i);
 });
 
-test('persistent database reopens with F0 through F5 migrations exactly once', async () => {
+test('persistent database reopens with F0 through F6 migrations exactly once', async () => {
   const { mkdtempSync, rmSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
-  const dir = mkdtempSync(join(tmpdir(), 'pbm-f5-'));
+  const dir = mkdtempSync(join(tmpdir(), 'pbm-f6-'));
   const file = join(dir, 'clinical.sqlite');
   try {
     const first = openDatabase(file);
@@ -58,7 +69,7 @@ test('persistent database reopens with F0 through F5 migrations exactly once', a
     const second = openDatabase(file);
     const migrations = second.prepare('SELECT version FROM schema_migrations ORDER BY version').all();
     assert.deepEqual(migrations.map((row) => row.version), [
-      '0001_f0', '0002_f1', '0003_f2', '0004_f3', '0005_f4', '0006_f5'
+      '0001_f0', '0002_f1', '0003_f2', '0004_f3', '0005_f4', '0006_f5', '0007_f6'
     ]);
     second.close();
   } finally {
