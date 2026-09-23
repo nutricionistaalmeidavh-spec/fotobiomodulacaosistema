@@ -1,4 +1,3 @@
-import { assertUiProvider } from '../data/contracts.js';
 import { emptyState, escapeHtml, statusBadge } from '../ui/primitives.js';
 import { createClinicalIntakePanels } from './clinical-intake.js';
 
@@ -13,15 +12,16 @@ export const WORKSPACE_TABS = Object.freeze([
   { id: 'consents', label: 'Consentimentos' }
 ]);
 
-export function createPatientWorkspaceView({ provider, onBack, onChanged, onMessage }) {
-  assertUiProvider(provider);
-  const local = { patientId: null, activeTab: 'summary' };
+export function createPatientWorkspaceView({ gateway, onBack, onChanged, onMessage }) {
+  const local = { patientId: null, patient: null, activeTab: 'summary' };
   let intakePanels = null;
 
-  function setPatient(patientId) {
+  async function setPatient(patientId) {
     local.patientId = patientId;
     local.activeTab = 'summary';
-    intakePanels = createClinicalIntakePanels({ provider, patientId, onChanged, onMessage });
+    local.patient = await gateway.getPatient(patientId);
+    intakePanels = createClinicalIntakePanels({ gateway, patientId, onChanged, onMessage });
+    await intakePanels.load();
   }
 
   function renderTimeline(patient) {
@@ -70,7 +70,7 @@ export function createPatientWorkspaceView({ provider, onBack, onChanged, onMess
   }
 
   function sessions(patient) {
-    return `<div class="grid workspace-session-grid"><section class="card workspace-detail-card"><span class="eyebrow">SESSÕES</span><h2>Sessões do paciente</h2><p>Última registrada no fixture:</p><div class="workspace-feature-value">${escapeHtml(patient.lastSession || 'Nenhuma')}</div></section><section class="card workspace-detail-card"><span class="eyebrow">RETORNO</span><h2>Próximo atendimento</h2><div class="workspace-feature-value">${escapeHtml(patient.nextSession || 'Sem retorno agendado')}</div><p>Planejamento e aplicação continuarão separados quando esta tela for ligada aos contratos reais.</p></section></div>`;
+    return `<div class="grid workspace-session-grid"><section class="card workspace-detail-card"><span class="eyebrow">SESSÕES</span><h2>Sessões do paciente</h2><p>Última registrada no estado de interface:</p><div class="workspace-feature-value">${escapeHtml(patient.lastSession || 'Nenhuma')}</div></section><section class="card workspace-detail-card"><span class="eyebrow">RETORNO</span><h2>Próximo atendimento</h2><div class="workspace-feature-value">${escapeHtml(patient.nextSession || 'Sem retorno agendado')}</div><p>Planejamento e aplicação continuarão separados quando esta tela for ligada aos contratos reais.</p></section></div>`;
   }
 
   function evolution(patient) {
@@ -95,7 +95,7 @@ export function createPatientWorkspaceView({ provider, onBack, onChanged, onMess
   }
 
   function render() {
-    const patient = local.patientId ? provider.getPatient(local.patientId) : null;
+    const patient = local.patient;
     if (!patient) {
       return emptyState({ title: 'Paciente não encontrado', description: 'Volte à lista de pacientes e selecione um registro disponível.' });
     }
