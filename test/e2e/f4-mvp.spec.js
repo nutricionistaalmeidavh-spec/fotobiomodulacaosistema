@@ -94,7 +94,7 @@ test('F4 fecha o MVP clínico e F5 registra evolução longitudinal sem inferir 
   await expect(page.locator('[data-f4-backup-status]')).toContainText('Backup verificado');
 
   await expect(page.locator('[data-f5-evolution]')).toBeVisible();
-  await expect(page.locator('[data-phase-badge]')).toContainText('F5');
+  await expect(page.locator('[data-phase-badge]')).toContainText('F7');
 
   await page.locator('[name="f5-outcome-type"]').selectOption('vas_pain');
   await page.locator('[name="f5-outcome-value"]').fill('8');
