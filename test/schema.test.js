@@ -22,6 +22,15 @@ test('patients support non-destructive archival fields', () => {
   assert.ok(columns.includes('archived_at'));
 });
 
+test('F5 outcomes link the responsible professional and longitudinal grouping metadata', () => {
+  const db = openDatabase(':memory:');
+  const columns = db.prepare("PRAGMA table_info('outcomes')").all().map((row) => row.name);
+  assert.ok(columns.includes('professional_id'));
+  assert.ok(columns.includes('baseline_group'));
+  const indexes = db.prepare("PRAGMA index_list('outcomes')").all().map((row) => row.name);
+  assert.ok(indexes.includes('idx_outcomes_patient_type_time'));
+});
+
 test('protocol versions are immutable after creation', () => {
   const db = openDatabase(':memory:');
   db.prepare("INSERT INTO professionals(id,name) VALUES('p1','Profissional')").run();
@@ -37,18 +46,20 @@ test('audit events are append-only', () => {
   assert.throws(() => db.prepare("UPDATE audit_events SET action='update' WHERE id='a1'").run(), /append-only/i);
 });
 
-test('persistent database reopens with F0 through F4 migrations exactly once', async () => {
+test('persistent database reopens with F0 through F5 migrations exactly once', async () => {
   const { mkdtempSync, rmSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
-  const dir = mkdtempSync(join(tmpdir(), 'pbm-f4-'));
+  const dir = mkdtempSync(join(tmpdir(), 'pbm-f5-'));
   const file = join(dir, 'clinical.sqlite');
   try {
     const first = openDatabase(file);
     first.close();
     const second = openDatabase(file);
     const migrations = second.prepare('SELECT version FROM schema_migrations ORDER BY version').all();
-    assert.deepEqual(migrations.map((row) => row.version), ['0001_f0', '0002_f1', '0003_f2', '0004_f3', '0005_f4']);
+    assert.deepEqual(migrations.map((row) => row.version), [
+      '0001_f0', '0002_f1', '0003_f2', '0004_f3', '0005_f4', '0006_f5'
+    ]);
     second.close();
   } finally {
     rmSync(dir, { recursive: true, force: true });
