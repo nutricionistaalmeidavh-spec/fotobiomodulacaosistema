@@ -12,7 +12,7 @@ async function login(page) {
   await expect(page.locator('body')).toHaveAttribute('data-app-ready', 'true');
 }
 
-test.describe.serial('Fotobiomodulação F2 UI', () => {
+test.describe.serial('Fotobiomodulação F3 UI', () => {
   test('faz setup local no primeiro acesso, sem provedor externo', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('[data-auth-setup]')).toBeVisible();
@@ -22,7 +22,7 @@ test.describe.serial('Fotobiomodulação F2 UI', () => {
     await page.locator('[data-setup-submit]').click();
     await expect(page.locator('body')).toHaveAttribute('data-app-ready', 'true');
     await expect(page.locator('[data-auth-user]')).toContainText('Profissional E2E');
-    await expect(page.getByText('F2 concluída', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('F3 concluída', { exact: true }).first()).toBeVisible();
   });
 
   test('faz logout e login novamente com a conta local', async ({ page }) => {
@@ -172,6 +172,59 @@ test.describe.serial('Fotobiomodulação F2 UI', () => {
     await expect(page.locator('[data-protocol-card]').filter({ hasText: 'Cervicalgia F2 E2E' })).toHaveCount(0);
   });
 
+  test('F3 cadastra equipamento e mostra adaptação separada do protocolo de referência', async ({ page }) => {
+    await login(page);
+    await page.locator('[data-nav="equipment"]').click();
+    await expect(page.locator('[data-f3-equipment-workspace]')).toBeVisible();
+
+    await page.locator('[name="equipment-manufacturer"]').fill('ArtiSys Test');
+    await page.locator('[name="equipment-model"]').fill('Laser F3');
+    await page.locator('[name="equipment-serial"]').fill('E2E-F3-001');
+    await page.locator('[data-create-equipment-f3]').click();
+    await expect(page.locator('[data-equipment-card]').filter({ hasText: 'Laser F3' })).toBeVisible();
+
+    const equipmentValue = await page.locator('[name="applicator-equipment"] option').filter({ hasText: 'Laser F3' }).getAttribute('value');
+    expect(equipmentValue).toBeTruthy();
+    await page.locator('[name="applicator-equipment"]').selectOption(equipmentValue);
+    await page.locator('[name="applicator-name"]').fill('Ponteira 808 F3');
+    await page.locator('[name="applicator-wavelength"]').fill('808');
+    await page.locator('[name="applicator-fixed-power"]').fill('200');
+    await page.locator('[name="applicator-area"]').fill('0.5');
+    await page.locator('[name="applicator-mode"]').selectOption('continuous');
+    await page.locator('[data-create-applicator-f3]').click();
+    await expect(page.getByText('Ponteira 808 F3', { exact: true }).first()).toBeVisible();
+
+    await page.locator('[name="applicator-equipment"]').selectOption(equipmentValue);
+    await page.locator('[name="applicator-name"]').fill('Ponteira 660 F3');
+    await page.locator('[name="applicator-wavelength"]').fill('660');
+    await page.locator('[name="applicator-fixed-power"]').fill('100');
+    await page.locator('[name="applicator-area"]').fill('0.5');
+    await page.locator('[name="applicator-mode"]').selectOption('continuous');
+    await page.locator('[data-create-applicator-f3]').click();
+    await expect(page.getByText('Ponteira 660 F3', { exact: true }).first()).toBeVisible();
+
+    await page.locator('[data-nav="protocols"]').click();
+    await expect(page.locator('[data-f3-adaptation]')).toBeVisible();
+
+    const versionValue = await page.locator('[name="adaptation-protocol-version"] option').filter({ hasText: 'Cervicalgia F2 E2E' }).getAttribute('value');
+    const compatibleValue = await page.locator('[name="adaptation-applicator"] option').filter({ hasText: 'Ponteira 808 F3' }).getAttribute('value');
+    expect(versionValue).toBeTruthy();
+    expect(compatibleValue).toBeTruthy();
+    await page.locator('[name="adaptation-protocol-version"]').selectOption(versionValue);
+    await page.locator('[name="adaptation-applicator"]').selectOption(compatibleValue);
+    await page.locator('[data-preview-adaptation]').click();
+    await expect(page.locator('[data-adaptation-reference]')).toContainText('40 s');
+    await expect(page.locator('[data-adaptation-derived]')).toContainText('20 s');
+    await expect(page.locator('[data-adaptation-reference]')).toContainText('4 J');
+
+    const incompatibleValue = await page.locator('[name="adaptation-applicator"] option').filter({ hasText: 'Ponteira 660 F3' }).getAttribute('value');
+    expect(incompatibleValue).toBeTruthy();
+    await page.locator('[name="adaptation-applicator"]').selectOption(incompatibleValue);
+    await page.locator('[data-preview-adaptation]').click();
+    await expect(page.locator('[data-adaptation-warning]').filter({ hasText: 'wavelength_incompatible' })).toBeVisible();
+    await expect(page.locator('[data-adaptation-reference]')).toContainText('40 s');
+  });
+
   test('mostra cadeia de auditoria íntegra após ações clínicas reais', async ({ page }) => {
     await login(page);
     await page.locator('[data-nav="audit"]').click();
@@ -179,6 +232,8 @@ test.describe.serial('Fotobiomodulação F2 UI', () => {
     await expect(page.getByText('patient.created', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('encounter.created', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('treatment_session.created', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('equipment.created', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('applicator.created', { exact: true }).first()).toBeVisible();
   });
 
   test('mantém todos os módulos alcançáveis em viewport mobile sem overflow global', async ({ page }) => {
