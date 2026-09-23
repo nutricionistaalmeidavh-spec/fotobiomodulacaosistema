@@ -44,7 +44,10 @@ test('F8 HTTP exposes authenticated deterministic clinical search', async () => 
       body: {
         title: 'Protocolo HTTP F8',
         changeSummary: 'v1',
-        parameters: { wavelengthNm: 808, powerMw: 100, timeS: 40, areaCm2: 0.5, mode: 'continuous' },
+        parameters: {
+          wavelengthNm: 808, powerMw: 100, timeS: 40, areaCm2: 0.5,
+          mode: 'continuous', points: 4, technique: 'contact'
+        },
         indications: [{
           condition: 'cervicalgia', symptom: 'dor cervical', bodyRegion: 'cervical',
           therapeuticGoal: 'analgesia', clinicalPhase: 'aguda',
@@ -52,7 +55,7 @@ test('F8 HTTP exposes authenticated deterministic clinical search', async () => 
         }]
       }
     });
-    assert.equal(protocol.status, 201);
+    assert.equal(protocol.status, 201, protocol.body.error || 'protocol should be created');
 
     const search = await jsonRequest(
       `${app.url}/api/clinical-engine/protocols?condition=cervicalgia&ageYears=45&professionalArea=fisioterapia&wavelengthNm=808`,
