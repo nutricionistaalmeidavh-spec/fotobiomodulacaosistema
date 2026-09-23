@@ -12,7 +12,7 @@ async function login(page) {
   await expect(page.locator('body')).toHaveAttribute('data-app-ready', 'true');
 }
 
-test.describe.serial('Fotobiomodulação F3 UI', () => {
+test.describe.serial('Fotobiomodulação F0–F3 regressão sob composição F7', () => {
   test('faz setup local no primeiro acesso, sem provedor externo', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('[data-auth-setup]')).toBeVisible();
@@ -22,7 +22,7 @@ test.describe.serial('Fotobiomodulação F3 UI', () => {
     await page.locator('[data-setup-submit]').click();
     await expect(page.locator('body')).toHaveAttribute('data-app-ready', 'true');
     await expect(page.locator('[data-auth-user]')).toContainText('Profissional E2E');
-    await expect(page.getByText('F3 concluída', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('F7 concluída', { exact: true }).first()).toBeVisible();
   });
 
   test('faz logout e login novamente com a conta local', async ({ page }) => {
@@ -110,7 +110,7 @@ test.describe.serial('Fotobiomodulação F3 UI', () => {
     await expect(page.locator('[data-nav]')).toHaveText([
       'Dashboard', 'Pacientes', 'Protocolos', 'Equipamentos', 'Sessões', 'Auditoria'
     ]);
-    await expect(page.getByText('21 tabelas', { exact: true })).toBeVisible();
+    await expect(page.getByText('23 tabelas', { exact: true })).toBeVisible();
     await expect(page.getByText('Versionamento imutável', { exact: true })).toBeVisible();
     await expect(page.getByText('Planejado ≠ aplicado', { exact: true })).toBeVisible();
     await expect(page.getByText('Auditoria append-only', { exact: true })).toBeVisible();
