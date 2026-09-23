@@ -13,6 +13,13 @@ function cleanNullable(value) {
   return text || null;
 }
 
+function optionalAge(value, label) {
+  if (value == null || value === '') return null;
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < 0 || number > 130) throw new Error(`${label} must be an integer between 0 and 130`);
+  return number;
+}
+
 function normalizeProtocolParameters(parameters) {
   if (parameters == null) return {};
   if (typeof parameters !== 'object' || Array.isArray(parameters)) throw new Error('Protocol parameters must be an object');
@@ -22,14 +29,24 @@ function normalizeProtocolParameters(parameters) {
 
 function normalizeIndications(indications = []) {
   if (!Array.isArray(indications)) throw new Error('Protocol indications must be an array');
-  return indications.map((item) => ({
-    condition: cleanNullable(item?.condition),
-    symptom: cleanNullable(item?.symptom),
-    bodyRegion: cleanNullable(item?.bodyRegion),
-    therapeuticGoal: cleanNullable(item?.therapeuticGoal),
-    clinicalPhase: cleanNullable(item?.clinicalPhase),
-    notes: cleanNullable(item?.notes)
-  })).filter((item) => Object.values(item).some(Boolean));
+  return indications.map((item) => {
+    const minAgeYears = optionalAge(item?.minAgeYears, 'Minimum age');
+    const maxAgeYears = optionalAge(item?.maxAgeYears, 'Maximum age');
+    if (minAgeYears != null && maxAgeYears != null && minAgeYears > maxAgeYears) {
+      throw new Error('Minimum age cannot exceed maximum age');
+    }
+    return {
+      condition: cleanNullable(item?.condition),
+      symptom: cleanNullable(item?.symptom),
+      bodyRegion: cleanNullable(item?.bodyRegion),
+      therapeuticGoal: cleanNullable(item?.therapeuticGoal),
+      clinicalPhase: cleanNullable(item?.clinicalPhase),
+      notes: cleanNullable(item?.notes),
+      minAgeYears,
+      maxAgeYears,
+      professionalArea: cleanNullable(item?.professionalArea)
+    };
+  }).filter((item) => Object.values(item).some((value) => value !== null && value !== ''));
 }
 
 function mapVersion(row) {
@@ -56,7 +73,10 @@ function mapIndication(row) {
     bodyRegion: row.body_region,
     therapeuticGoal: row.therapeutic_goal,
     clinicalPhase: row.clinical_phase,
-    notes: row.notes
+    notes: row.notes,
+    minAgeYears: row.min_age_years ?? null,
+    maxAgeYears: row.max_age_years ?? null,
+    professionalArea: row.professional_area ?? null
   };
 }
 
@@ -84,13 +104,15 @@ function findOrCreateCondition(db, conditionName) {
 function insertIndications(db, protocolVersionId, indications) {
   const statement = db.prepare(`
     INSERT INTO protocol_indications(
-      id, protocol_version_id, condition_id, symptom, body_region, therapeutic_goal, notes, clinical_phase
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      id, protocol_version_id, condition_id, symptom, body_region, therapeutic_goal, notes, clinical_phase,
+      min_age_years, max_age_years, professional_area
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   for (const indication of indications) {
     statement.run(
       randomUUID(), protocolVersionId, findOrCreateCondition(db, indication.condition),
-      indication.symptom, indication.bodyRegion, indication.therapeuticGoal, indication.notes, indication.clinicalPhase
+      indication.symptom, indication.bodyRegion, indication.therapeuticGoal, indication.notes, indication.clinicalPhase,
+      indication.minAgeYears, indication.maxAgeYears, indication.professionalArea
     );
   }
 }
