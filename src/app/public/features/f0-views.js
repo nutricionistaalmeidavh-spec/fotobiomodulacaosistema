@@ -3,7 +3,7 @@ import { bindDosimetryCalculator, renderDosimetryCalculator } from './dosimetry.
 import { renderEquipmentWorkspace } from './equipment-workspace.js';
 import { bindTreatmentWorkflow, renderTreatmentWorkflow } from './treatment-workflow.js';
 
-export function createF0Views({ state, api, showMessage, rerenderFresh }) {
+export function createF0Views({ state, gateway, showMessage, rerenderFresh }) {
   function protocolCard(protocol) {
     const versions = protocol.versions || [];
     return `<article class="version-item" data-protocol-id="${escapeHtml(protocol.id)}">
@@ -65,8 +65,8 @@ export function createF0Views({ state, api, showMessage, rerenderFresh }) {
       const title = root.querySelector('[name="protocol-title"]')?.value ?? '';
       const changeSummary = root.querySelector('[name="protocol-summary"]')?.value ?? '';
       try {
-        const result = await api('/api/protocols', { method: 'POST', body: JSON.stringify({ title, changeSummary }) });
-        state.selectedProtocolId = result.protocol.id;
+        const protocol = await gateway.createProtocol({ title, changeSummary });
+        state.selectedProtocolId = protocol.id;
         await rerenderFresh('Protocolo criado com versão v1 imutável.');
       } catch (error) { showMessage(error.message); }
     });
@@ -75,7 +75,7 @@ export function createF0Views({ state, api, showMessage, rerenderFresh }) {
       showMessage('');
       const changeSummary = root.querySelector('[name="version-summary"]')?.value ?? '';
       try {
-        await api(`/api/protocols/${encodeURIComponent(state.selectedProtocolId)}/versions`, { method: 'POST', body: JSON.stringify({ changeSummary }) });
+        await gateway.createProtocolVersion(state.selectedProtocolId, { changeSummary });
         await rerenderFresh('Nova versão criada; versões anteriores permanecem preservadas.');
       } catch (error) { showMessage(error.message); }
     });
@@ -91,7 +91,7 @@ export function createF0Views({ state, api, showMessage, rerenderFresh }) {
         return;
       }
       try {
-        await api('/api/sessions', { method: 'POST', body: JSON.stringify({ protocolVersionId, plannedEnergyJ, appliedEnergyJ, professionalAdjustmentReason }) });
+        await gateway.createSession({ protocolVersionId, plannedEnergyJ, appliedEnergyJ, professionalAdjustmentReason });
         await rerenderFresh('Sessão registrada com parâmetros planejados e aplicados separados.');
       } catch (error) { showMessage(error.message); }
     });
