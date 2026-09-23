@@ -52,11 +52,11 @@ test('F4 fecha o MVP clínico no workspace real do paciente', async ({ page }) =
   await page.locator('[name="planned-energy"]').fill('4');
   await page.locator('[name="applied-energy"]').fill('4');
   await page.locator('[data-create-session]').click();
-  await expect(page.getByText('Paciente MVP F4', { exact: false }).first()).toBeVisible();
 
   await page.locator('[data-nav="patients"]').click();
   await page.locator('[data-patient-row]').filter({ hasText: 'Paciente MVP F4' }).getByRole('button', { name: 'Abrir' }).click();
   await expect(page.locator('[data-f4-clinical-tools]')).toBeVisible();
+  await expect(page.locator('[data-patient-workspace]').getByText('Sessão PBM', { exact: false }).first()).toBeVisible();
 
   const sessionValue = await page.locator('[name="point-session"] option').first().getAttribute('value');
   expect(sessionValue).toBeTruthy();
