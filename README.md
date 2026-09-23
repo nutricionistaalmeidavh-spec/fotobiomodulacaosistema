@@ -1,89 +1,120 @@
 # ArtiSys Fotobiomodulação
 
-Sistema clínico especializado em fotobiomodulação, construído por etapas. O repositório começa com a **F0 — Fundação técnica e domínio clínico**, já exposta em uma UI local para que cada etapa futura possa ser validada também no navegador.
+Sistema clínico especializado em fotobiomodulação, local/self-hosted, construído por fases com rastreabilidade clínica e sem dependência obrigatória de SaaS ou API paga.
 
-## Estado atual — F0
+## Estado atual — F0 a F5 concluídas
 
-A F0 entrega:
+A implementação atual cobre:
 
-- Node.js + SQLite local/self-hosted;
-- 19 tabelas de domínio/migração;
-- migrações versionadas e reaplicação segura;
-- profissionais, pacientes, atendimentos, equipamentos e aplicadores como fundação relacional;
-- protocolos com versões imutáveis;
-- vínculo histórico sessão → versão exata do protocolo;
-- parâmetros planejados e efetivamente aplicados como snapshots separados;
-- justificativa profissional obrigatória quando o aplicado difere do planejado;
-- auditoria append-only com cadeia SHA-256 verificável;
-- servidor HTTP/API local sem dependência de framework externo;
-- UI responsiva com menu superior para Dashboard, Pacientes, Protocolos, Equipamentos, Sessões e Auditoria;
-- testes unitários, integração HTTP, contratos de UI e E2E em navegador.
+- autenticação local e profissionais;
+- pacientes, anamnese, avaliações, atendimentos e histórico clínico;
+- protocolos estruturados com versionamento imutável;
+- dosimetria PBM determinística a partir dos valores informados pelo profissional;
+- equipamentos e aplicadores com adaptação explícita ao equipamento real;
+- consentimentos append-only;
+- sessões PBM com parâmetros planejados e aplicados separados;
+- pontos de aplicação registrados de forma estruturada;
+- imagens clínicas armazenadas localmente com SHA-256;
+- documentos clínicos PDF finalizados e imutáveis;
+- backup local consistente do SQLite via `VACUUM INTO`, arquivos clínicos e manifesto SHA-256;
+- desfechos longitudinais, séries temporais e comparação descritiva;
+- linha do tempo clínica unificada;
+- auditoria append-only com cadeia de integridade verificável;
+- UI responsiva, incluindo fluxo mobile;
+- testes unitários/domain/HTTP, E2E Chromium e smoke em CI.
 
-A UI de **Pacientes** e **Equipamentos** na F0 expõe a estrutura já existente no domínio e usa registros demo locais. CRUD clínico completo de pacientes/anamnese pertence à F1; motor de dosimetria e compatibilidade de equipamentos pertence às fases F2/F3.
+## Fases implementadas
 
-## Core R$ 0 / self-hosted / open source
+### F0 — Fundação técnica e domínio
 
-O runtime não exige SaaS, API paga, banco gerenciado ou serviço externo.
+SQLite local, migrações versionadas, domínio clínico, versões imutáveis de protocolo, snapshots planejado/aplicado e auditoria encadeada.
 
-- **Runtime:** Node.js 22+ e SQLite via `node:sqlite`.
-- **Aplicação:** HTTP + HTML/CSS/JS nativos.
-- **Licença do projeto:** MIT.
-- **E2E:** Playwright, apenas como dependência de desenvolvimento open source.
-- **CI no GitHub Actions:** conveniência opcional do repositório; não é dependência para executar o produto.
+### F1 — Paciente e prontuário
 
-Nenhum recurso pago é necessário silenciosamente.
+Autenticação local, cadastro não destrutivo de pacientes, anamnese, avaliação, atendimento e histórico longitudinal básico.
 
-## Executar a aplicação
+### F2 — Protocolos e dosimetria
+
+Biblioteca estruturada por condição, sintoma, região corporal, objetivo terapêutico e fase clínica. Suporta parâmetros PBM como comprimento de onda, potência, tempo, área, energia, fluência, irradiância, modo, frequência, pontos e técnica.
+
+Relações determinísticas usadas pelo sistema:
+
+- `Energia (J) = Potência (mW) / 1000 × tempo (s)`
+- `Fluência (J/cm²) = Energia (J) / área (cm²)`
+- `Irradiância (mW/cm²) = Potência (mW) / área (cm²)`
+
+Valores derivados inconsistentes são rejeitados em vez de corrigidos silenciosamente.
+
+### F3 — Equipamentos e adaptação
+
+Equipamentos/aplicadores registram fabricante, modelo, comprimento de onda, potência, área/spot, modos e frequências. A adaptação compara o protocolo de referência com o aplicador selecionado e calcula parâmetros derivados sem sobrescrever a versão científica/profissional do protocolo.
+
+Quando o equipamento aceita uma faixa de potência, a potência precisa ser selecionada explicitamente pelo profissional; o sistema não escolhe a potência automaticamente.
+
+### F4 — MVP clínico
+
+Fecha o fluxo operacional local com consentimento, mídia clínica, pontos de aplicação, evolução básica, PDF clínico, backup verificado e auditoria do fluxo.
+
+### F5 — Evolução longitudinal
+
+Adiciona desfechos canônicos:
+
+- dor VAS/EVA 0–10;
+- funcional numérico;
+- edema numérico com unidade;
+- amplitude de movimento/ROM;
+- evolução textual estruturada.
+
+Cada desfecho pode ser vinculado ao paciente, atendimento e sessão, registra o profissional responsável e pode usar um grupo longitudinal (`baseline_group`) para séries comparáveis. A UI mostra os registros ao longo do tempo, comparação primeiro → último e gráfico local simples.
+
+A comparação é **descritiva**. O sistema não afirma que uma mudança clínica foi causada pelo tratamento.
+
+## Limites clínicos de segurança
+
+1. O sistema não prescreve automaticamente.
+2. O sistema não escolhe dose terapêutica pelo profissional.
+3. Cálculos de dosimetria são determinísticos e partem dos parâmetros informados/selecionados pelo profissional.
+4. Uma versão de protocolo nunca é sobrescrita ou apagada.
+5. Mudanças de protocolo criam uma nova `ProtocolVersion`.
+6. A sessão aponta para a versão exata utilizada.
+7. Parâmetros planejados e aplicados permanecem separados.
+8. Alterações entre planejado e aplicado exigem justificativa profissional.
+9. Consentimentos e eventos de auditoria preservam histórico append-only.
+10. Documentos clínicos finalizados são imutáveis.
+11. Evolução longitudinal não produz diagnóstico nem inferência automática de causalidade.
+
+## Core R$ 0 / self-hosted
+
+O runtime não exige serviço externo obrigatório.
+
+- **Runtime:** Node.js 22+.
+- **Banco:** SQLite via `node:sqlite`.
+- **Servidor/UI:** HTTP + HTML/CSS/JavaScript nativos.
+- **Arquivos clínicos:** armazenamento local configurável.
+- **PDF:** geração local sem API externa.
+- **Backup:** snapshot SQLite local + arquivos + manifesto de integridade.
+- **E2E:** Playwright como dependência de desenvolvimento.
+- **CI:** GitHub Actions é conveniência do repositório, não requisito do produto.
+
+## Executar
 
 ```bash
 npm install
 npm run dev
 ```
 
-Abra `http://127.0.0.1:8788`.
+Por padrão, a aplicação usa `http://127.0.0.1:8788` e o banco persistente fica em `data/fotobiomodulacao.sqlite`.
 
-O banco persistente padrão é criado em `data/fotobiomodulacao.sqlite`.
-
-## Testes
+## Verificação
 
 ```bash
+npm run check
 npm run test:unit
 npx playwright install chromium
 npm run test:e2e
-npm run check
 npm run smoke
 ```
 
-A suíte E2E verifica no navegador:
-
-1. todas as áreas concluídas da F0 aparecem na navegação;
-2. o dashboard informa as 19 tabelas e invariantes clínicas;
-3. protocolo pode ser criado e receber v2 sem edição da v1;
-4. sessão bloqueia alteração de parâmetro sem justificativa profissional;
-5. sessão alterada é registrada com planejado e aplicado separados;
-6. auditoria aparece como cadeia íntegra após ações reais da UI;
-7. os seis módulos continuam alcançáveis em viewport mobile sem overflow global.
-
-## Invariantes protegidas
-
-1. Uma versão de protocolo nunca é sobrescrita ou apagada.
-2. Alterações clínicas geram uma nova versão.
-3. Uma sessão aponta para a versão exata utilizada.
-4. Protocolo e versão vinculados à sessão precisam pertencer um ao outro.
-5. Parâmetros planejados e aplicados são snapshots separados.
-6. Se o profissional alterar parâmetros aplicados, deve registrar motivo.
-7. Eventos de auditoria são append-only.
-8. A cadeia de auditoria detecta adulteração.
-9. Migrações são aplicadas apenas uma vez por banco.
-10. Funcionalidades concluídas precisam continuar visíveis/operáveis na UI e cobertas por E2E.
-
-## Roadmap
-
-- **F0 — concluída:** fundação, domínio, persistência, UI de validação e E2E.
-- **F1:** paciente, autenticação local, anamnese, prontuário/atendimento e histórico clínico.
-- **F2:** protocolos PBM estruturados e dosimetria.
-- **F3:** equipamentos e adaptação determinística de parâmetros.
-- **F4:** marco MVP.
-- **F5+:** evolução clínica, evidência, body map, operação completa e inteligência assistiva.
+A suíte cobre regressão das fases anteriores e fluxos reais no navegador, incluindo autenticação, prontuário, protocolo/dosimetria, equipamento/adaptação, sessão PBM, consentimento, pontos de aplicação, mídia, PDF, backup, evolução longitudinal e auditoria.
 
 Documentação técnica adicional está em `docs/`.
