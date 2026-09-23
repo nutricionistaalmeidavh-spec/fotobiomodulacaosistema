@@ -23,9 +23,9 @@ test.describe('UI foundation and operational dashboard', () => {
     await expect(page.locator('[data-nav="patients"]')).toHaveAttribute('aria-current', 'page');
   });
 
-  test('planned primary routes render explicit nonblank boundaries', async ({ page }) => {
+  test('remaining planned primary routes render explicit nonblank boundaries', async ({ page }) => {
     await page.goto('/');
-    for (const [route, title] of [['agenda', 'Agenda'], ['reports', 'Relatórios'], ['settings', 'Configurações']]) {
+    for (const [route, title] of [['reports', 'Relatórios'], ['settings', 'Configurações']]) {
       await page.locator(`[data-nav="${route}"]`).click();
       await expect(page.getByRole('heading', { name: title, exact: true, level: 1 })).toBeVisible();
       await expect(page.locator(`[data-planned-route="${route}"]`)).toContainText(/sem simular persistência/i);
@@ -53,7 +53,7 @@ test.describe('UI foundation and operational dashboard', () => {
     await page.locator('[data-nav="agenda"]').click();
     await expect(page.getByRole('heading', { name: 'Agenda', exact: true, level: 1 })).toBeVisible();
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    await expect(page.getByText(/sem simular persistência/i)).toBeVisible();
+    await expect(page.getByText(/somente local.*não persistido/i).first()).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
   });
