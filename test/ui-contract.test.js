@@ -1,13 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const publicUrl = new URL('../src/app/public/', import.meta.url);
+const frontendRoot = fileURLToPath(publicUrl);
 const html = fs.readFileSync(new URL('index.html', publicUrl), 'utf8');
 const app = fs.readFileSync(new URL('app.js', publicUrl), 'utf8');
 
 function readPublic(pathname) {
   return fs.readFileSync(new URL(pathname, publicUrl), 'utf8');
+}
+
+function jsFiles(dir) {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    return entry.isDirectory() ? jsFiles(full) : entry.name.endsWith('.js') ? [full] : [];
+  });
 }
 
 test('UI foundation is split into focused reusable browser modules', () => {
@@ -45,4 +55,12 @@ test('F0 clinical safety surfaces remain represented after the UI refactor', () 
   assert.doesNotMatch(f0Views, /data-edit-protocol-version/);
   assert.match(f0Views, /renderTreatmentWorkflow/);
   assert.match(f0Views, /audit/);
+});
+
+test('only F0ApiAdapter contains frontend API endpoints', () => {
+  const allowed = path.join(frontendRoot, 'data', 'adapters', 'f0-api-adapter.js');
+  const offenders = jsFiles(frontendRoot)
+    .filter((file) => file !== allowed)
+    .filter((file) => /\/api\//.test(fs.readFileSync(file, 'utf8')));
+  assert.deepEqual(offenders, []);
 });
