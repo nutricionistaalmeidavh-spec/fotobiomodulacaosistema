@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDatabase } from '../db/database.js';
-import { createF8Service } from './f8-service.js';
+import { createF9Service } from './f9-service.js';
 import { createAuthService } from './auth-service.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -100,6 +100,15 @@ function evidenceFilters(url) {
   return filters;
 }
 
+function queryFilters(url, keys) {
+  const filters = {};
+  for (const key of keys) {
+    const value = String(url.searchParams.get(key) ?? '').trim();
+    if (value) filters[key] = value;
+  }
+  return filters;
+}
+
 export async function createAppServer({
   dbFile = path.resolve('data/fotobiomodulacao.sqlite'),
   storageRoot = path.resolve('data/clinical-assets'),
@@ -108,7 +117,7 @@ export async function createAppServer({
 } = {}) {
   if (dbFile !== ':memory:') fs.mkdirSync(path.dirname(path.resolve(dbFile)), { recursive: true });
   const db = openDatabase(dbFile);
-  const service = createF8Service(db, { storageRoot, backupRoot });
+  const service = createF9Service(db, { storageRoot, backupRoot });
   const auth = createAuthService(db);
   service.ensureSeedData();
 
@@ -153,6 +162,45 @@ export async function createAppServer({
         const actorId = user.professionalId;
 
         if (request.method === 'GET' && url.pathname === '/api/status') return sendJson(response, 200, service.getStatus());
+
+        if (request.method === 'GET' && url.pathname === '/api/appointments') {
+          return sendJson(response, 200, { appointments: service.listAppointments(queryFilters(url, ['patientId', 'professionalId', 'status', 'from', 'to'])) });
+        }
+        if (request.method === 'POST' && url.pathname === '/api/appointments') {
+          return sendJson(response, 201, { appointments: service.createAppointments(await readJson(request), actorId) });
+        }
+        const appointmentMatch = url.pathname.match(/^\/api\/appointments\/([^/]+)$/);
+        if (appointmentMatch && request.method === 'PATCH') {
+          return sendJson(response, 200, { appointment: service.updateAppointment(decodeURIComponent(appointmentMatch[1]), await readJson(request), actorId) });
+        }
+
+        if (request.method === 'GET' && url.pathname === '/api/packages') {
+          return sendJson(response, 200, { packages: service.listTreatmentPackages(queryFilters(url, ['patientId', 'status'])) });
+        }
+        if (request.method === 'POST' && url.pathname === '/api/packages') {
+          return sendJson(response, 201, { package: service.createTreatmentPackage(await readJson(request), actorId) });
+        }
+        const packageConsumeMatch = url.pathname.match(/^\/api\/packages\/([^/]+)\/consume$/);
+        if (packageConsumeMatch && request.method === 'POST') {
+          const body = await readJson(request);
+          return sendJson(response, 201, { usage: service.consumeTreatmentPackage(decodeURIComponent(packageConsumeMatch[1]), body.treatmentSessionId, actorId) });
+        }
+
+        if (request.method === 'GET' && url.pathname === '/api/payments') {
+          return sendJson(response, 200, { payments: service.listPayments(queryFilters(url, ['patientId', 'status'])) });
+        }
+        if (request.method === 'POST' && url.pathname === '/api/payments') {
+          return sendJson(response, 201, { payment: service.createPayment(await readJson(request), actorId) });
+        }
+        const paymentPayMatch = url.pathname.match(/^\/api\/payments\/([^/]+)\/pay$/);
+        if (paymentPayMatch && request.method === 'POST') {
+          const body = await readJson(request);
+          return sendJson(response, 200, { payment: service.markPaymentPaid(decodeURIComponent(paymentPayMatch[1]), body.paidAt || new Date().toISOString(), actorId) });
+        }
+
+        if (request.method === 'GET' && url.pathname === '/api/reports/operations') {
+          return sendJson(response, 200, { report: service.getOperationsReport(queryFilters(url, ['from', 'to'])) });
+        }
 
         if (request.method === 'GET' && url.pathname === '/api/clinical-engine/protocols') {
           return sendJson(response, 200, { results: service.searchClinicalProtocols(clinicalEngineFilters(url)) });
