@@ -85,7 +85,7 @@ function toolsTemplate(workspace) {
   const encounter = latestEncounter(workspace);
   const sessions = workspace.sessions || [];
   const pointOptions = sessions.map((session) => `
-    <option value="${esc(session.id)}">Sessão PBM · ${esc(session.protocolTitle || 'Sem protocolo')} · ${esc(session.startedAt || '')}</option>
+    <option value="${esc(session.id)}">Aplicação · ${esc(session.protocolTitle || 'Sem protocolo')} · ${esc(session.startedAt || '')}</option>
   `).join('');
   const consentHistory = listTemplate(workspace.consents, (item) => `
     <div class="version-item"><strong>${esc(item.consentType)}</strong> · ${esc(item.version)} · ${esc(item.status)}<div class="muted">${esc(item.createdAt)}</div></div>
