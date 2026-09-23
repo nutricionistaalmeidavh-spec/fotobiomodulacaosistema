@@ -12,6 +12,8 @@ import { createDashboardView } from './features/dashboard.js';
 import { createPatientsView } from './features/patients.js';
 import { createPatientWorkspaceView } from './features/patient-workspace.js';
 import { createAgendaView } from './features/agenda.js';
+import { createReportsView } from './features/reports.js';
+import { createAuditView } from './features/audit.js';
 import { createPlannedRoutesView } from './features/planned-routes.js';
 import { createF0Views } from './features/f0-views.js';
 
@@ -92,6 +94,8 @@ const agendaView = createAgendaView({
   onChanged: render,
   onMessage: showMessage
 });
+const reportsView = createReportsView({ gateway, onChanged: render, onMessage: showMessage });
+const auditView = createAuditView({ gateway, onChanged: render, onMessage: showMessage });
 
 async function openPatient(patientId) {
   showMessage('');
@@ -109,6 +113,8 @@ async function loadRoute(route) {
   if (route === 'dashboard') await dashboardView.load();
   if (route === 'patients') await patientsView.load();
   if (route === 'agenda') await agendaView.load();
+  if (route === 'reports') await reportsView.load();
+  if (route === 'audit') await auditView.load();
 }
 
 function renderChrome() {
@@ -129,7 +135,8 @@ function render() {
     'patient-workspace': patientWorkspaceView.render,
     ...f0Views.templates,
     agenda: agendaView.render,
-    reports: () => plannedRoutesView.render('reports'),
+    reports: reportsView.render,
+    audit: auditView.render,
     settings: () => plannedRoutesView.render('settings')
   };
   const template = templates[state.currentView] || dashboardView.render;
@@ -138,11 +145,15 @@ function render() {
   patientsView.bindActions(view);
   patientWorkspaceView.bindActions(view);
   agendaView.bindActions(view);
+  reportsView.bindActions(view);
+  auditView.bindActions(view);
   f0Views.bindActions(view);
 }
 
 async function rerenderFresh(message = '') {
   await refreshAll();
+  if (state.currentView === 'audit') await auditView.load();
+  if (state.currentView === 'reports') await reportsView.load();
   if (message) showMessage(message, 'success');
   render();
 }
