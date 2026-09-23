@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDatabase } from '../db/database.js';
-import { createF5Service } from './f5-service.js';
+import { createF7Service } from './f7-service.js';
 import { createAuthService } from './auth-service.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -75,6 +75,22 @@ function protocolFilters(url) {
   return filters;
 }
 
+function evidenceFilters(url) {
+  const filters = {};
+  const mappings = [
+    ['q', 'query'],
+    ['studyType', 'studyType'],
+    ['condition', 'condition'],
+    ['bodyRegion', 'bodyRegion'],
+    ['wavelengthNm', 'wavelengthNm']
+  ];
+  for (const [queryKey, filterKey] of mappings) {
+    const value = String(url.searchParams.get(queryKey) ?? '').trim();
+    if (value) filters[filterKey] = value;
+  }
+  return filters;
+}
+
 export async function createAppServer({
   dbFile = path.resolve('data/fotobiomodulacao.sqlite'),
   storageRoot = path.resolve('data/clinical-assets'),
@@ -83,7 +99,7 @@ export async function createAppServer({
 } = {}) {
   if (dbFile !== ':memory:') fs.mkdirSync(path.dirname(path.resolve(dbFile)), { recursive: true });
   const db = openDatabase(dbFile);
-  const service = createF5Service(db, { storageRoot, backupRoot });
+  const service = createF7Service(db, { storageRoot, backupRoot });
   const auth = createAuthService(db);
   service.ensureSeedData();
 
@@ -129,11 +145,27 @@ export async function createAppServer({
 
         if (request.method === 'GET' && url.pathname === '/api/status') return sendJson(response, 200, service.getStatus());
 
+        if (request.method === 'GET' && url.pathname === '/api/evidence') {
+          return sendJson(response, 200, { evidence: service.listEvidence(evidenceFilters(url)) });
+        }
+        if (request.method === 'POST' && url.pathname === '/api/evidence') {
+          return sendJson(response, 201, { evidence: service.createEvidence(await readJson(request), actorId) });
+        }
+
+        if (request.method === 'GET' && url.pathname === '/api/body-map/catalog') {
+          return sendJson(response, 200, { regions: service.getBodyMapCatalog() });
+        }
+
         if (request.method === 'GET' && url.pathname === '/api/patients') {
           return sendJson(response, 200, { patients: service.listPatients() });
         }
         if (request.method === 'POST' && url.pathname === '/api/patients') {
           return sendJson(response, 201, { patient: service.createPatient(await readJson(request), actorId) });
+        }
+
+        const patientBodyMapMatch = url.pathname.match(/^\/api\/patients\/([^/]+)\/body-map-points$/);
+        if (patientBodyMapMatch && request.method === 'GET') {
+          return sendJson(response, 200, { points: service.listBodyMapPoints(decodeURIComponent(patientBodyMapMatch[1])) });
         }
 
         const patientOutcomesMatch = url.pathname.match(/^\/api\/patients\/([^/]+)\/outcomes$/);
@@ -285,6 +317,22 @@ export async function createAppServer({
             version: service.createProtocolVersion(decodeURIComponent(versionMatch[1]), await readJson(request), actorId)
           });
         }
+
+        const protocolEvidenceMatch = url.pathname.match(/^\/api\/protocol-versions\/([^/]+)\/evidence$/);
+        if (protocolEvidenceMatch && request.method === 'GET') {
+          return sendJson(response, 200, {
+            evidence: service.listProtocolEvidence(decodeURIComponent(protocolEvidenceMatch[1]))
+          });
+        }
+        if (protocolEvidenceMatch && request.method === 'POST') {
+          const body = await readJson(request);
+          return sendJson(response, 201, {
+            link: service.linkEvidenceToProtocolVersion(
+              decodeURIComponent(protocolEvidenceMatch[1]), body.evidenceId, body, actorId
+            )
+          });
+        }
+
         const adaptMatch = url.pathname.match(/^\/api\/protocol-versions\/([^/]+)\/adapt$/);
         if (request.method === 'POST' && adaptMatch) {
           const body = await readJson(request);
@@ -301,6 +349,14 @@ export async function createAppServer({
         if (request.method === 'POST' && url.pathname === '/api/sessions') {
           return sendJson(response, 201, { session: service.createTreatmentSession(await readJson(request), actorId) });
         }
+
+        const bodyMapPointMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/body-map-points$/);
+        if (request.method === 'POST' && bodyMapPointMatch) {
+          return sendJson(response, 201, {
+            point: service.recordBodyMapPoint(decodeURIComponent(bodyMapPointMatch[1]), await readJson(request), actorId)
+          });
+        }
+
         const applicationPointMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/application-points$/);
         if (request.method === 'POST' && applicationPointMatch) {
           return sendJson(response, 201, {
