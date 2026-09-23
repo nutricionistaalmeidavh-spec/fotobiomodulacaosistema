@@ -1,20 +1,25 @@
-import { assertUiProvider } from '../data/contracts.js';
 import { escapeHtml } from '../ui/primitives.js';
 
-export function createDashboardView({ provider, onNavigate, getFoundation }) {
-  assertUiProvider(provider);
+export function createDashboardView({ gateway, onNavigate, getFoundation }) {
+  const local = {
+    snapshot: { sessionsToday: 0, activePatients: 0, pendingFollowUps: 0, recentProtocols: 0, recentActivity: [] }
+  };
+
+  async function load() {
+    local.snapshot = await gateway.getDashboard();
+  }
 
   function metricCard(label, value, helper) {
     return `<article class="card metric-card"><span class="eyebrow">${escapeHtml(label)}</span><div class="metric">${escapeHtml(value)}</div><p>${escapeHtml(helper)}</p></article>`;
   }
 
   function render() {
-    const snapshot = provider.getDashboard();
+    const snapshot = local.snapshot;
     const foundation = getFoundation?.() || {};
     return `<div class="page-stack" data-dashboard-view>
       <div class="page-heading">
         <div><span class="eyebrow">DASHBOARD</span><h1>Hoje na clínica</h1><p>Resumo operacional para orientar a rotina sem depender do backend clínico ainda em evolução.</p></div>
-        <span class="status-badge status-success">UI paralela · fixtures locais</span>
+        <span class="status-badge status-success">UI paralela · dados por gateway</span>
       </div>
       <div class="grid cards dashboard-metrics">
         ${metricCard('Sessões hoje', snapshot.sessionsToday, 'Aplicações previstas no dia')}
@@ -33,7 +38,7 @@ export function createDashboardView({ provider, onNavigate, getFoundation }) {
         </section>
         <section class="card">
           <div class="section-head"><div><span class="eyebrow">ATIVIDADE RECENTE</span><h2>Movimentações</h2></div></div>
-          <div class="timeline-list">${snapshot.recentActivity.map((item, index) => `<article class="timeline-row"><span class="timeline-dot" aria-hidden="true"></span><div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.detail)}</p></div><time>${escapeHtml(item.meta)}</time>${index === snapshot.recentActivity.length - 1 ? '' : '<span class="timeline-line" aria-hidden="true"></span>'}</article>`).join('')}</div>
+          <div class="timeline-list">${(snapshot.recentActivity || []).map((item, index) => `<article class="timeline-row"><span class="timeline-dot" aria-hidden="true"></span><div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.detail)}</p></div><time>${escapeHtml(item.meta)}</time>${index === snapshot.recentActivity.length - 1 ? '' : '<span class="timeline-line" aria-hidden="true"></span>'}</article>`).join('')}</div>
         </section>
       </div>
       <section class="card foundation-strip">
@@ -52,5 +57,5 @@ export function createDashboardView({ provider, onNavigate, getFoundation }) {
     root.querySelectorAll('[data-dashboard-nav]').forEach((button) => button.addEventListener('click', () => onNavigate?.(button.dataset.dashboardNav)));
   }
 
-  return { render, bindActions };
+  return { load, render, bindActions };
 }
