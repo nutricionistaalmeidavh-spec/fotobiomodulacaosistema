@@ -12,3 +12,5 @@ Pre-flight shared interfaces:
 Ruling: variable-power applicators require explicit `selectedPowerMw`; fixed power may be used automatically. This prevents the system from silently choosing a clinical power setting.
 Ruling: SQLite backup snapshots use `VACUUM INTO` before hashing/export, not a raw copy of an open database.
 Ruling: F4 includes basic narrative evolution entries in the patient workspace before F5 adds typed longitudinal measures.
+
+Task 1: complete (RED 5bb2854: missing equipment.notes; GREEN ce989b0; CI 35801065744: syntax/unit/E2E/smoke success)
