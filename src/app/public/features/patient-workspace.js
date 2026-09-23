@@ -1,6 +1,7 @@
 import { emptyState, escapeHtml, statusBadge } from '../ui/primitives.js';
 import { createClinicalIntakePanels } from './clinical-intake.js';
 import { createEvolutionView } from './evolution.js';
+import { createPhotosView } from './photos.js';
 
 export const WORKSPACE_TABS = Object.freeze([
   { id: 'summary', label: 'Resumo' },
@@ -17,6 +18,7 @@ export function createPatientWorkspaceView({ gateway, onBack, onChanged, onMessa
   const local = { patientId: null, patient: null, activeTab: 'summary' };
   let intakePanels = null;
   let evolutionView = null;
+  let photosView = null;
 
   async function setPatient(patientId) {
     local.patientId = patientId;
@@ -24,7 +26,8 @@ export function createPatientWorkspaceView({ gateway, onBack, onChanged, onMessa
     local.patient = await gateway.getPatient(patientId);
     intakePanels = createClinicalIntakePanels({ gateway, patientId, onChanged, onMessage });
     evolutionView = createEvolutionView({ gateway, patientId, onChanged, onMessage });
-    await Promise.all([intakePanels.load(), evolutionView.load()]);
+    photosView = createPhotosView({ gateway, patientId, onChanged, onMessage });
+    await Promise.all([intakePanels.load(), evolutionView.load(), photosView.load()]);
   }
 
   function renderTimeline(patient) {
@@ -81,7 +84,7 @@ export function createPatientWorkspaceView({ gateway, onBack, onChanged, onMessa
   }
 
   function photos() {
-    return emptyState({ title: 'Nenhuma foto registrada', description: 'Fotos clínicas poderão ser organizadas por sessão e data quando a camada de persistência correspondente estiver disponível.' });
+    return photosView?.render() || emptyState({ title: 'Fotos indisponíveis', description: 'Selecione novamente o paciente para carregar as fotos locais.' });
   }
 
   function documents() {
@@ -121,6 +124,7 @@ export function createPatientWorkspaceView({ gateway, onBack, onChanged, onMessa
     }));
     intakePanels?.bindActions(root);
     evolutionView?.bindActions(root);
+    photosView?.bindActions(root);
   }
 
   return { render, bindActions, setPatient };
