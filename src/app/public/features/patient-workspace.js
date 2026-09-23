@@ -1,5 +1,6 @@
 import { emptyState, escapeHtml, statusBadge } from '../ui/primitives.js';
 import { createClinicalIntakePanels } from './clinical-intake.js';
+import { createEvolutionView } from './evolution.js';
 
 export const WORKSPACE_TABS = Object.freeze([
   { id: 'summary', label: 'Resumo' },
@@ -15,13 +16,15 @@ export const WORKSPACE_TABS = Object.freeze([
 export function createPatientWorkspaceView({ gateway, onBack, onChanged, onMessage }) {
   const local = { patientId: null, patient: null, activeTab: 'summary' };
   let intakePanels = null;
+  let evolutionView = null;
 
   async function setPatient(patientId) {
     local.patientId = patientId;
     local.activeTab = 'summary';
     local.patient = await gateway.getPatient(patientId);
     intakePanels = createClinicalIntakePanels({ gateway, patientId, onChanged, onMessage });
-    await intakePanels.load();
+    evolutionView = createEvolutionView({ gateway, patientId, onChanged, onMessage });
+    await Promise.all([intakePanels.load(), evolutionView.load()]);
   }
 
   function renderTimeline(patient) {
@@ -73,8 +76,8 @@ export function createPatientWorkspaceView({ gateway, onBack, onChanged, onMessa
     return `<div class="grid workspace-session-grid"><section class="card workspace-detail-card"><span class="eyebrow">SESSÕES</span><h2>Sessões do paciente</h2><p>Última registrada no estado de interface:</p><div class="workspace-feature-value">${escapeHtml(patient.lastSession || 'Nenhuma')}</div></section><section class="card workspace-detail-card"><span class="eyebrow">RETORNO</span><h2>Próximo atendimento</h2><div class="workspace-feature-value">${escapeHtml(patient.nextSession || 'Sem retorno agendado')}</div><p>Planejamento e aplicação continuarão separados quando esta tela for ligada aos contratos reais.</p></section></div>`;
   }
 
-  function evolution(patient) {
-    return `<section class="card workspace-detail-card"><span class="eyebrow">EVOLUÇÃO</span><h2>Evolução longitudinal</h2><p>Linha do tempo clínica preparada para reunir sessões, avaliações e eventos persistidos.</p>${renderTimeline(patient)}</section>`;
+  function evolution() {
+    return evolutionView?.render() || emptyState({ title: 'Evolução indisponível', description: 'Selecione novamente o paciente para carregar os registros.' });
   }
 
   function photos() {
@@ -117,6 +120,7 @@ export function createPatientWorkspaceView({ gateway, onBack, onChanged, onMessa
       onChanged?.();
     }));
     intakePanels?.bindActions(root);
+    evolutionView?.bindActions(root);
   }
 
   return { render, bindActions, setPatient };
