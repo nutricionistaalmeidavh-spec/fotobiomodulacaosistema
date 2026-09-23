@@ -4,7 +4,10 @@ import {
   renderSecondaryNavigation,
   setMobileNavOpen
 } from './ui/navigation.js';
-import { createMockUiProvider } from './data/mock-provider.js';
+import { UI_FIXTURES } from './data/fixtures.js';
+import { createF0ApiAdapter } from './data/adapters/f0-api-adapter.js';
+import { createLocalClinicalAdapter } from './data/adapters/local-clinical-adapter.js';
+import { createClinicalDataGateway } from './data/clinical-data-gateway.js';
 import { createDashboardView } from './features/dashboard.js';
 import { createPatientsView } from './features/patients.js';
 import { createPatientWorkspaceView } from './features/patient-workspace.js';
@@ -14,7 +17,6 @@ import { createF0Views } from './features/f0-views.js';
 const state = {
   currentView: 'dashboard',
   status: null,
-  patients: [],
   equipment: [],
   protocols: [],
   sessions: [],
@@ -28,17 +30,11 @@ const flash = document.querySelector('#flash');
 const primaryNav = document.querySelector('#primary-navigation');
 const secondaryNav = document.querySelector('#secondary-navigation');
 const mobileNavToggle = document.querySelector('[data-mobile-nav-toggle]');
-const uiProvider = createMockUiProvider();
 
-async function api(path, options = {}) {
-  const response = await fetch(path, {
-    ...options,
-    headers: { 'content-type': 'application/json', ...(options.headers || {}) }
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || `Falha HTTP ${response.status}`);
-  return payload;
-}
+const gateway = createClinicalDataGateway({
+  f0Adapter: createF0ApiAdapter(),
+  localAdapter: createLocalClinicalAdapter(UI_FIXTURES)
+});
 
 function showMessage(message, kind = 'warning') {
   flash.hidden = !message;
@@ -47,19 +43,17 @@ function showMessage(message, kind = 'warning') {
 }
 
 async function refreshAll() {
-  const [status, patients, equipment, protocols, sessions, audit] = await Promise.all([
-    api('/api/status'),
-    api('/api/patients'),
-    api('/api/equipment'),
-    api('/api/protocols'),
-    api('/api/sessions'),
-    api('/api/audit')
+  const [status, equipment, protocols, sessions, audit] = await Promise.all([
+    gateway.getFoundationStatus(),
+    gateway.listEquipment(),
+    gateway.listProtocols(),
+    gateway.listSessions(),
+    gateway.getAuditState()
   ]);
   state.status = status;
-  state.patients = patients.patients;
-  state.equipment = equipment.equipment;
-  state.protocols = protocols.protocols;
-  state.sessions = sessions.sessions;
+  state.equipment = equipment;
+  state.protocols = protocols;
+  state.sessions = sessions;
   state.audit = audit;
   if (!state.selectedProtocolId || !state.protocols.some((item) => item.id === state.selectedProtocolId)) {
     state.selectedProtocolId = state.protocols[0]?.id ?? null;
@@ -67,10 +61,10 @@ async function refreshAll() {
   document.querySelector('[data-phase-badge]').textContent = `${status.phase} concluída`;
 }
 
-const f0Views = createF0Views({ state, api, showMessage, rerenderFresh });
+const f0Views = createF0Views({ state, gateway, showMessage, rerenderFresh });
 const plannedRoutesView = createPlannedRoutesView();
 const dashboardView = createDashboardView({
-  provider: uiProvider,
+  gateway,
   onNavigate: navigate,
   getFoundation: () => ({
     tableCount: state.status?.tableCount ?? 19,
@@ -80,24 +74,33 @@ const dashboardView = createDashboardView({
   })
 });
 const patientsView = createPatientsView({
-  provider: uiProvider,
+  gateway,
   onOpenPatient: openPatient,
   onChanged: render,
   onMessage: showMessage
 });
 const patientWorkspaceView = createPatientWorkspaceView({
-  provider: uiProvider,
+  gateway,
   onBack: () => navigate('patients'),
   onChanged: render,
   onMessage: showMessage
 });
 
-function openPatient(patientId) {
-  patientWorkspaceView.setPatient(patientId);
-  state.currentView = 'patient-workspace';
-  state.mobileNavOpen = false;
+async function openPatient(patientId) {
   showMessage('');
-  render();
+  try {
+    await patientWorkspaceView.setPatient(patientId);
+    state.currentView = 'patient-workspace';
+    state.mobileNavOpen = false;
+    render();
+  } catch (error) {
+    showMessage(error.message);
+  }
+}
+
+async function loadRoute(route) {
+  if (route === 'dashboard') await dashboardView.load();
+  if (route === 'patients') await patientsView.load();
 }
 
 function renderChrome() {
@@ -142,8 +145,13 @@ async function navigate(route) {
   state.currentView = route;
   state.mobileNavOpen = false;
   showMessage('');
-  await refreshAll();
-  render();
+  try {
+    await refreshAll();
+    await loadRoute(route);
+    render();
+  } catch (error) {
+    showMessage(error.message);
+  }
 }
 
 mobileNavToggle.addEventListener('click', () => {
@@ -155,6 +163,7 @@ view.addEventListener('pbm:rerender', render);
 
 try {
   await refreshAll();
+  await loadRoute('dashboard');
   render();
   document.body.dataset.appReady = 'true';
 } catch (error) {
