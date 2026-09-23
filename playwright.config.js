@@ -9,7 +9,8 @@ export default defineConfig({
   reporter: [['list']],
   projects: [
     { name: 'base-f0-f3', testMatch: 'ui.spec.js' },
-    { name: 'f4-mvp', testMatch: 'f4-mvp.spec.js', dependencies: ['base-f0-f3'] }
+    { name: 'f4-mvp', testMatch: 'f4-mvp.spec.js', dependencies: ['base-f0-f3'] },
+    { name: 'f6-f7', testMatch: 'f6-f7.spec.js', dependencies: ['f4-mvp'] }
   ],
   use: {
     baseURL: 'http://127.0.0.1:8788',
