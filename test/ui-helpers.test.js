@@ -7,6 +7,7 @@ const localAdapterUrl = new URL('data/adapters/local-clinical-adapter.js', publi
 const fixturesUrl = new URL('data/fixtures.js', publicRoot);
 const patientsViewUrl = new URL('features/patients.js', publicRoot);
 const workspaceUrl = new URL('features/patient-workspace.js', publicRoot);
+const photosUrl = new URL('features/photos.js', publicRoot);
 
 test('local clinical adapter returns deterministic copied snapshots', async () => {
   assert.equal(fs.existsSync(localAdapterUrl), true, 'local clinical adapter should exist');
@@ -61,4 +62,12 @@ test('patient workspace exposes the exact approved local tab registry', async ()
   assert.deepEqual(WORKSPACE_TABS.map((item) => item.id), [
     'summary', 'anamnesis', 'protocols', 'sessions', 'evolution', 'photos', 'documents', 'consents'
   ]);
+});
+
+test('local photo validation rejects non-images and files above five MiB', async () => {
+  const { MAX_LOCAL_PHOTO_BYTES, validateLocalPhotoFile } = await import(photosUrl.href);
+  assert.equal(MAX_LOCAL_PHOTO_BYTES, 5 * 1024 * 1024);
+  assert.throws(() => validateLocalPhotoFile({ type: 'text/plain', size: 10 }), /imagem/i);
+  assert.throws(() => validateLocalPhotoFile({ type: 'image/png', size: MAX_LOCAL_PHOTO_BYTES + 1 }), /5 MiB/i);
+  assert.doesNotThrow(() => validateLocalPhotoFile({ type: 'image/png', size: MAX_LOCAL_PHOTO_BYTES }));
 });
