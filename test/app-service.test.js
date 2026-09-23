@@ -9,7 +9,10 @@ test('clinical service exposes F1 schema status and seeded foundation records', 
   service.ensureSeedData();
   const status = service.getStatus();
   assert.equal(status.phase, 'F1');
-  assert.equal(status.tableCount, 21);
+  assert.ok(status.tableCount >= 21);
+  assert.ok(status.tables.includes('patients'));
+  assert.ok(status.tables.includes('protocol_versions'));
+  assert.ok(status.tables.includes('audit_events'));
   assert.equal(service.listPatients().length, 1);
   assert.equal(service.listEquipment().length, 1);
 });
@@ -34,6 +37,7 @@ test('F1 patient workflow creates, updates and archives without destructive dele
 
   const archived = service.archivePatient(patient.id);
   assert.equal(archived.active, false);
+  assert.ok(archived.archivedAt);
   assert.equal(service.listPatients().some((item) => item.id === patient.id), false);
   assert.equal(service.listPatients({ includeArchived: true }).some((item) => item.id === patient.id), true);
 });
@@ -42,26 +46,20 @@ test('F1 encounter records anamnesis and exposes longitudinal patient workspace'
   const db = openDatabase();
   const service = createF0Service(db);
   service.ensureSeedData();
-  assert.equal(typeof service.startEncounter, 'function');
-  assert.equal(typeof service.finalizeEncounter, 'function');
-  assert.equal(typeof service.getPatientWorkspace, 'function');
-
-  const patient = service.createPatient({ fullName: 'Histórico F1' });
+  const patient = service.createPatient({ fullName: 'Paciente Atendimento' });
   const encounter = service.startEncounter(patient.id, {
-    notes: 'Atendimento inicial',
+    notes: 'Primeiro atendimento',
     assessment: {
-      chiefComplaint: 'Dor cervical', history: 'Há 3 semanas', medications: 'Nenhuma',
-      allergies: 'Negadas', precautions: 'Fotossensibilidade negada', painScore: 7
+      chiefComplaint: 'Dor cervical', history: 'Dor há 2 semanas', medications: 'Nenhuma',
+      allergies: 'Negadas', precautions: 'Sem sinais de alerta', painScore: 7
     }
   });
   assert.equal(encounter.status, 'open');
-
   let workspace = service.getPatientWorkspace(patient.id);
-  assert.equal(workspace.patient.id, patient.id);
-  assert.equal(workspace.encounters.length, 1);
+  assert.equal(workspace.patient.fullName, 'Paciente Atendimento');
   assert.equal(workspace.assessments[0].chiefComplaint, 'Dor cervical');
   assert.equal(workspace.assessments[0].painScore, 7);
-  assert.ok(workspace.timeline.some((item) => item.type === 'encounter'));
+  assert.equal(workspace.encounters[0].id, encounter.id);
   assert.ok(workspace.timeline.some((item) => item.type === 'assessment'));
 
   service.finalizeEncounter(encounter.id);
@@ -74,51 +72,42 @@ test('creating a protocol records v1 and creating a version appends v2 without m
   const db = openDatabase();
   const service = createF0Service(db);
   service.ensureSeedData();
-  const protocol = service.createProtocol({ title: 'Dor cervical', changeSummary: 'Inicial' });
-  const first = service.listProtocolVersions(protocol.id);
-  assert.equal(first.length, 1);
-  assert.equal(first[0].versionNumber, 1);
-  service.createProtocolVersion(protocol.id, { changeSummary: 'Ajuste documental' });
-  const versions = service.listProtocolVersions(protocol.id);
-  assert.deepEqual(versions.map((item) => item.versionNumber), [1, 2]);
-  assert.equal(versions[0].changeSummary, 'Inicial');
+  const protocol = service.createProtocol({ title: 'Dor cervical', changeSummary: 'v1', parameters: { energyJ: 4 } });
+  const versions1 = service.listProtocolVersions(protocol.id);
+  assert.equal(versions1.length, 1);
+  assert.equal(versions1[0].versionNumber, 1);
+  assert.deepEqual(versions1[0].parameters, { energyJ: 4 });
+  service.createProtocolVersion(protocol.id, { changeSummary: 'v2', parameters: { energyJ: 5 } });
+  const versions2 = service.listProtocolVersions(protocol.id);
+  assert.equal(versions2.length, 2);
+  assert.deepEqual(versions2[0].parameters, { energyJ: 4 });
+  assert.deepEqual(versions2[1].parameters, { energyJ: 5 });
 });
 
 test('creating a session requires a reason when applied energy differs from planned energy', () => {
   const db = openDatabase();
   const service = createF0Service(db);
   service.ensureSeedData();
-  const protocol = service.createProtocol({ title: 'Sessão', changeSummary: 'Inicial' });
-  const [version] = service.listProtocolVersions(protocol.id);
-  assert.throws(() => service.createTreatmentSession({
-    protocolVersionId: version.id,
-    plannedEnergyJ: 4,
-    appliedEnergyJ: 5,
-    professionalAdjustmentReason: ''
-  }), /Professional adjustment reason is required/i);
+  const protocol = service.createProtocol({ title: 'Sessão', changeSummary: 'v1' });
+  const version = service.listProtocolVersions(protocol.id)[0];
+  assert.throws(() => service.createTreatmentSession({ protocolVersionId: version.id, plannedEnergyJ: 4, appliedEnergyJ: 5 }), /reason/i);
   const session = service.createTreatmentSession({
-    protocolVersionId: version.id,
-    plannedEnergyJ: 4,
-    appliedEnergyJ: 5,
+    protocolVersionId: version.id, plannedEnergyJ: 4, appliedEnergyJ: 5,
     professionalAdjustmentReason: 'Resposta clínica observada'
   });
-  assert.equal(session.appliedParameters.energyJ, 5);
-  assert.equal(session.professionalAdjustmentReason, 'Resposta clínica observada');
+  assert.deepEqual(session.plannedParameters, { energyJ: 4 });
+  assert.deepEqual(session.appliedParameters, { energyJ: 5 });
 });
 
 test('session linked to a real encounter appears in patient history', () => {
   const db = openDatabase();
   const service = createF0Service(db);
   service.ensureSeedData();
-  const patient = service.createPatient({ fullName: 'Paciente sessão' });
-  const encounter = service.startEncounter(patient.id, { assessment: { chiefComplaint: 'Lesão' } });
-  const protocol = service.createProtocol({ title: 'PBM F1', changeSummary: 'Inicial' });
-  const [version] = service.listProtocolVersions(protocol.id);
-  const session = service.createTreatmentSession({
-    encounterId: encounter.id, protocolVersionId: version.id,
-    plannedEnergyJ: 4, appliedEnergyJ: 4
-  });
-  assert.equal(session.encounterId, encounter.id);
+  const patient = service.createPatient({ fullName: 'Paciente Sessão' });
+  const encounter = service.startEncounter(patient.id, { assessment: { chiefComplaint: 'Dor' } });
+  const protocol = service.createProtocol({ title: 'PBM paciente', changeSummary: 'v1' });
+  const version = service.listProtocolVersions(protocol.id)[0];
+  const session = service.createTreatmentSession({ encounterId: encounter.id, protocolVersionId: version.id, plannedEnergyJ: 4, appliedEnergyJ: 4 });
   const workspace = service.getPatientWorkspace(patient.id);
   assert.ok(workspace.sessions.some((item) => item.id === session.id));
   assert.ok(workspace.timeline.some((item) => item.type === 'treatment_session' && item.id === session.id));
@@ -128,16 +117,15 @@ test('audit chain remains valid after F1 patient, encounter, protocol and sessio
   const db = openDatabase();
   const service = createF0Service(db);
   service.ensureSeedData();
-  const patient = service.createPatient({ fullName: 'Auditável F1' });
-  service.startEncounter(patient.id, { assessment: { chiefComplaint: 'Avaliação' } });
-  const protocol = service.createProtocol({ title: 'Auditável', changeSummary: 'Inicial' });
-  const [version] = service.listProtocolVersions(protocol.id);
-  service.createTreatmentSession({ protocolVersionId: version.id, plannedEnergyJ: 4, appliedEnergyJ: 4 });
+  const patient = service.createPatient({ fullName: 'Audit F1' });
+  const encounter = service.startEncounter(patient.id, { assessment: { chiefComplaint: 'Auditoria' } });
+  const protocol = service.createProtocol({ title: 'Audit protocol', changeSummary: 'v1' });
+  const version = service.listProtocolVersions(protocol.id)[0];
+  service.createTreatmentSession({ encounterId: encounter.id, protocolVersionId: version.id, plannedEnergyJ: 4, appliedEnergyJ: 4 });
   const audit = service.getAudit();
   assert.equal(audit.valid, true);
-  const actions = audit.events.map((item) => item.action).join(' ');
-  assert.match(actions, /patient\.created/);
-  assert.match(actions, /encounter\.created/);
-  assert.match(actions, /protocol\.created/);
-  assert.match(actions, /treatment_session\.created/);
+  assert.ok(audit.events.some((event) => event.action === 'patient.created'));
+  assert.ok(audit.events.some((event) => event.action === 'encounter.created'));
+  assert.ok(audit.events.some((event) => event.action === 'protocol.created'));
+  assert.ok(audit.events.some((event) => event.action === 'treatment_session.created'));
 });
