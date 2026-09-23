@@ -142,17 +142,24 @@ function renderSeries(series) {
 
 async function refreshTimeline() {
   if (!currentPatientId) return;
-  const payload = await api(`/api/patients/${encodeURIComponent(currentPatientId)}/timeline?order=asc`);
+  const patientId = currentPatientId;
+  const payload = await api(`/api/patients/${encodeURIComponent(patientId)}/timeline?order=asc`);
+  if (patientId !== currentPatientId) return;
   renderTimeline(payload.timeline || []);
 }
 
 async function loadSeries() {
   if (!currentPatientId) return;
+  const patientId = currentPatientId;
   const type = view.querySelector('[name="f5-series-type"]')?.value || 'vas_pain';
   const group = view.querySelector('[name="f5-series-group"]')?.value.trim() || '';
   const params = new URLSearchParams({ metricType: type });
   if (group) params.set('baselineGroup', group);
-  const payload = await api(`/api/patients/${encodeURIComponent(currentPatientId)}/outcome-series?${params}`);
+  const payload = await api(`/api/patients/${encodeURIComponent(patientId)}/outcome-series?${params}`);
+  if (patientId !== currentPatientId) return;
+  const activeType = view.querySelector('[name="f5-series-type"]')?.value || '';
+  const activeGroup = view.querySelector('[name="f5-series-group"]')?.value.trim() || '';
+  if (activeType !== type || activeGroup !== group) return;
   renderSeries(payload.series || { points: [] });
 }
 
@@ -183,26 +190,37 @@ function syncUnitPlaceholder() {
 
 async function recordOutcome() {
   if (!currentPatientId) return;
-  const type = view.querySelector('[name="f5-outcome-type"]').value;
-  const rawValue = view.querySelector('[name="f5-outcome-value"]').value;
-  const payload = {
-    metricType: type,
-    metricValue: rawValue === '' ? null : Number(rawValue),
-    metricUnit: view.querySelector('[name="f5-outcome-unit"]').value.trim() || null,
-    baselineGroup: view.querySelector('[name="f5-outcome-group"]').value.trim() || null,
-    narrative: view.querySelector('[name="f5-outcome-narrative"]').value.trim() || null
-  };
-  await api(`/api/patients/${encodeURIComponent(currentPatientId)}/outcomes`, {
-    method: 'POST',
-    body: JSON.stringify(payload)
-  });
+  const patientId = currentPatientId;
+  const button = view.querySelector('[data-record-outcome-f5]');
   const feedback = view.querySelector('[data-f5-feedback]');
-  if (feedback) feedback.textContent = 'Evolução registrada.';
-  const seriesType = view.querySelector('[name="f5-series-type"]');
-  const seriesGroup = view.querySelector('[name="f5-series-group"]');
-  if (seriesType) seriesType.value = type;
-  if (seriesGroup) seriesGroup.value = payload.baselineGroup || '';
-  await Promise.all([refreshTimeline(), loadSeries()]);
+  if (button?.disabled) return;
+  if (button) button.disabled = true;
+  if (feedback) feedback.textContent = 'Salvando evolução…';
+
+  try {
+    const type = view.querySelector('[name="f5-outcome-type"]').value;
+    const rawValue = view.querySelector('[name="f5-outcome-value"]').value;
+    const payload = {
+      metricType: type,
+      metricValue: rawValue === '' ? null : Number(rawValue),
+      metricUnit: view.querySelector('[name="f5-outcome-unit"]').value.trim() || null,
+      baselineGroup: view.querySelector('[name="f5-outcome-group"]').value.trim() || null,
+      narrative: view.querySelector('[name="f5-outcome-narrative"]').value.trim() || null
+    };
+    await api(`/api/patients/${encodeURIComponent(patientId)}/outcomes`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    if (patientId !== currentPatientId) return;
+    if (feedback) feedback.textContent = 'Evolução registrada.';
+    const seriesType = view.querySelector('[name="f5-series-type"]');
+    const seriesGroup = view.querySelector('[name="f5-series-group"]');
+    if (seriesType) seriesType.value = type;
+    if (seriesGroup) seriesGroup.value = payload.baselineGroup || '';
+    await Promise.all([refreshTimeline(), loadSeries()]);
+  } finally {
+    if (patientId === currentPatientId && button?.isConnected) button.disabled = false;
+  }
 }
 
 function mountEvolution() {
