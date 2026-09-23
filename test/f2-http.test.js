@@ -9,7 +9,7 @@ function cookieFrom(response) {
   return (response.headers.get('set-cookie') || '').split(';')[0];
 }
 
-test('F2 protocol features remain available under F5 server', async () => {
+test('F2 protocol features remain available under F7 server', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pbm-f2-http-'));
   const app = await createAppServer({ dbFile: path.join(dir, 'app.sqlite'), port: 0 });
   try {
@@ -23,7 +23,7 @@ test('F2 protocol features remain available under F5 server', async () => {
     const headers = { 'content-type': 'application/json', cookie };
 
     const status = await fetch(`${app.url}/api/status`, { headers: { cookie } }).then((response) => response.json());
-    assert.equal(status.phase, 'F5');
+    assert.equal(status.phase, 'F7');
 
     const created = await fetch(`${app.url}/api/protocols`, {
       method: 'POST',
