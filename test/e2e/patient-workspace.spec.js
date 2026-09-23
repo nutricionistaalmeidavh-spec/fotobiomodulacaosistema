@@ -34,7 +34,7 @@ test.describe('UI-2 patient workspace', () => {
       ['Anamnese', 'Anamnese clínica'],
       ['Protocolos', 'Protocolo em uso'],
       ['Sessões', 'Sessões do paciente'],
-      ['Evolução', 'Evolução longitudinal'],
+      ['Evolução', 'Adicionar evolução'],
       ['Fotos', 'Nenhuma foto registrada'],
       ['Documentos', 'Nenhum documento registrado'],
       ['Consentimentos', 'Nenhum consentimento registrado']
