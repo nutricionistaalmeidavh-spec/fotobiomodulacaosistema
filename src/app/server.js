@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDatabase } from '../db/database.js';
-import { createF4MvpService } from './f4-mvp-service.js';
+import { createF5Service } from './f5-service.js';
 import { createAuthService } from './auth-service.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -83,7 +83,7 @@ export async function createAppServer({
 } = {}) {
   if (dbFile !== ':memory:') fs.mkdirSync(path.dirname(path.resolve(dbFile)), { recursive: true });
   const db = openDatabase(dbFile);
-  const service = createF4MvpService(db, { storageRoot, backupRoot });
+  const service = createF5Service(db, { storageRoot, backupRoot });
   const auth = createAuthService(db);
   service.ensureSeedData();
 
@@ -135,6 +135,45 @@ export async function createAppServer({
         if (request.method === 'POST' && url.pathname === '/api/patients') {
           return sendJson(response, 201, { patient: service.createPatient(await readJson(request), actorId) });
         }
+
+        const patientOutcomesMatch = url.pathname.match(/^\/api\/patients\/([^/]+)\/outcomes$/);
+        if (patientOutcomesMatch && request.method === 'GET') {
+          const patientId = decodeURIComponent(patientOutcomesMatch[1]);
+          return sendJson(response, 200, {
+            outcomes: service.listOutcomes(patientId, {
+              metricType: url.searchParams.get('metricType'),
+              baselineGroup: url.searchParams.get('baselineGroup'),
+              order: url.searchParams.get('order') || 'desc'
+            })
+          });
+        }
+        if (patientOutcomesMatch && request.method === 'POST') {
+          const patientId = decodeURIComponent(patientOutcomesMatch[1]);
+          return sendJson(response, 201, {
+            outcome: service.recordOutcome({ patientId, ...(await readJson(request)) }, actorId)
+          });
+        }
+
+        const patientTimelineMatch = url.pathname.match(/^\/api\/patients\/([^/]+)\/timeline$/);
+        if (patientTimelineMatch && request.method === 'GET') {
+          return sendJson(response, 200, {
+            timeline: service.getPatientTimeline(decodeURIComponent(patientTimelineMatch[1]), {
+              order: url.searchParams.get('order') || 'asc'
+            })
+          });
+        }
+
+        const patientSeriesMatch = url.pathname.match(/^\/api\/patients\/([^/]+)\/outcome-series$/);
+        if (patientSeriesMatch && request.method === 'GET') {
+          return sendJson(response, 200, {
+            series: service.getOutcomeSeries(
+              decodeURIComponent(patientSeriesMatch[1]),
+              url.searchParams.get('metricType'),
+              { baselineGroup: url.searchParams.get('baselineGroup') }
+            )
+          });
+        }
+
         const patientMatch = url.pathname.match(/^\/api\/patients\/([^/]+)$/);
         if (request.method === 'PATCH' && patientMatch) {
           return sendJson(response, 200, {
