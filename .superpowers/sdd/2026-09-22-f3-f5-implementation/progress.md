@@ -14,3 +14,4 @@ Ruling: SQLite backup snapshots use `VACUUM INTO` before hashing/export, not a r
 Ruling: F4 includes basic narrative evolution entries in the patient workspace before F5 adds typed longitudinal measures.
 
 Task 1: complete (RED 5bb2854: missing equipment.notes; GREEN ce989b0; CI 35801065744: syntax/unit/E2E/smoke success)
+Task 2: complete (RED e5e4935: equipment-adaptation module absent; GREEN 1efbbc7; CI 35801288001: syntax/unit/E2E/smoke success)
