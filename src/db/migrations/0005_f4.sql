@@ -15,3 +15,15 @@ BEFORE DELETE ON consents
 BEGIN
   SELECT RAISE(ABORT, 'consents are immutable; append a new consent event');
 END;
+
+CREATE TRIGGER application_points_immutable_update
+BEFORE UPDATE ON application_points
+BEGIN
+  SELECT RAISE(ABORT, 'application points are immutable; append a new record');
+END;
+
+CREATE TRIGGER application_points_immutable_delete
+BEFORE DELETE ON application_points
+BEGIN
+  SELECT RAISE(ABORT, 'application points are immutable; append a new record');
+END;
