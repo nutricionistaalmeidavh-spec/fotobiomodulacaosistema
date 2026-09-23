@@ -1,18 +1,6 @@
 import { escapeHtml } from '../ui/primitives.js';
 
 export const PLANNED_ROUTES = Object.freeze({
-  agenda: {
-    eyebrow: 'AGENDA',
-    title: 'Agenda',
-    description: 'Agenda clínica preparada para receber consultas, retornos e sessões quando os contratos reais estiverem disponíveis.',
-    boundary: 'Estrutura visual pronta, sem simular persistência clínica nesta etapa.'
-  },
-  reports: {
-    eyebrow: 'RELATÓRIOS',
-    title: 'Relatórios',
-    description: 'Relatórios operacionais serão alimentados por contratos explícitos de dados e continuarão independentes de serviços pagos obrigatórios.',
-    boundary: 'Superfície preparada, sem simular persistência ou indicadores clínicos inexistentes.'
-  },
   settings: {
     eyebrow: 'CONFIGURAÇÕES',
     title: 'Configurações',
