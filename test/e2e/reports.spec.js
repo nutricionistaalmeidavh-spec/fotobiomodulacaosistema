@@ -15,7 +15,7 @@ test.describe('UI-8 reports', () => {
     await expect(page.getByText('Retornos pendentes', { exact: true })).toBeVisible();
     await expect(page.getByText('Divergências planejado × aplicado', { exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Uso por protocolo', exact: true })).toBeVisible();
-    await expect(page.getByText(/descritivo.*não.*recomendação/i)).toBeVisible();
+    await expect(page.locator('.module-note').filter({ hasText: /descritivo.*não.*recomendação/i })).toBeVisible();
   });
 
   test('invalid period renders validation without breaking navigation', async ({ page }) => {
