@@ -58,8 +58,8 @@ test('F9 packages consume only real patient sessions once', () => {
 test('F9 payments use integer cents and reports received versus pending values descriptively', () => {
   const { db, service, patient } = setup();
   assert.throws(() => service.createPayment({ patientId: patient.id, amountCents: 99.5 }), /centavos|integer/i);
-  const paid = service.createPayment({ patientId: patient.id, amountCents: 15000, paymentMethod: 'pix' });
-  const pending = service.createPayment({ patientId: patient.id, amountCents: 5000, paymentMethod: 'dinheiro' });
+  const paid = service.createPayment({ patientId: patient.id, amountCents: 15000, paymentMethod: 'pix', dueAt: '2026-10-02T12:00:00.000Z' });
+  service.createPayment({ patientId: patient.id, amountCents: 5000, paymentMethod: 'dinheiro', dueAt: '2026-10-15T12:00:00.000Z' });
   service.markPaymentPaid(paid.id, '2026-10-02T12:00:00.000Z');
   const report = service.getOperationsReport({ from: '2026-10-01T00:00:00.000Z', to: '2026-10-31T23:59:59.999Z' });
   assert.equal(report.finance.receivedCents, 15000);
