@@ -119,6 +119,7 @@ test('F4 fecha o MVP clínico e F5 registra evolução longitudinal sem inferir 
   await page.locator('[name="f5-outcome-group"]').fill('cervical-f5-e2e');
   await page.locator('[name="f5-outcome-narrative"]').fill('Dor registrada no acompanhamento posterior.');
   await page.locator('[data-record-outcome-f5]').click();
+  await expect(page.locator('[data-f5-feedback]')).toContainText('Evolução registrada');
 
   await page.locator('[name="f5-outcome-type"]').selectOption('rom');
   await page.locator('[name="f5-outcome-value"]').fill('70');
@@ -126,6 +127,7 @@ test('F4 fecha o MVP clínico e F5 registra evolução longitudinal sem inferir 
   await page.locator('[name="f5-outcome-group"]').fill('cervical-rom-f5');
   await page.locator('[name="f5-outcome-narrative"]').fill('Amplitude cervical registrada.');
   await page.locator('[data-record-outcome-f5]').click();
+  await expect(page.locator('[data-f5-feedback]')).toContainText('Evolução registrada');
 
   await page.locator('[name="f5-series-type"]').selectOption('vas_pain');
   await page.locator('[name="f5-series-group"]').fill('cervical-f5-e2e');
