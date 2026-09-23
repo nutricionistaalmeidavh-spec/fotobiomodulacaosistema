@@ -1,0 +1,38 @@
+name: UI Audit Capture
+
+on:
+  push:
+    branches:
+      - chore/ui-audit-pdf-20260923
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npx playwright install --with-deps chromium
+      - name: Start app
+        run: |
+          node scripts/e2e-server.js > /tmp/ui-audit-server.log 2>&1 &
+          echo $! > /tmp/ui-audit-server.pid
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8788 >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/ui-audit-server.log
+          exit 1
+      - name: Capture screens
+        run: node scripts/capture-ui-audit.js
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-audit-screenshots
+          path: artifacts/ui-audit/*.png
+          if-no-files-found: error
