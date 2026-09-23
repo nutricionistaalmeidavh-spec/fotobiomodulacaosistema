@@ -11,6 +11,7 @@ import { createClinicalDataGateway } from './data/clinical-data-gateway.js';
 import { createDashboardView } from './features/dashboard.js';
 import { createPatientsView } from './features/patients.js';
 import { createPatientWorkspaceView } from './features/patient-workspace.js';
+import { createAgendaView } from './features/agenda.js';
 import { createPlannedRoutesView } from './features/planned-routes.js';
 import { createF0Views } from './features/f0-views.js';
 
@@ -85,6 +86,12 @@ const patientWorkspaceView = createPatientWorkspaceView({
   onChanged: render,
   onMessage: showMessage
 });
+const agendaView = createAgendaView({
+  gateway,
+  onOpenPatient: openPatient,
+  onChanged: render,
+  onMessage: showMessage
+});
 
 async function openPatient(patientId) {
   showMessage('');
@@ -101,6 +108,7 @@ async function openPatient(patientId) {
 async function loadRoute(route) {
   if (route === 'dashboard') await dashboardView.load();
   if (route === 'patients') await patientsView.load();
+  if (route === 'agenda') await agendaView.load();
 }
 
 function renderChrome() {
@@ -120,7 +128,7 @@ function render() {
     patients: patientsView.render,
     'patient-workspace': patientWorkspaceView.render,
     ...f0Views.templates,
-    agenda: () => plannedRoutesView.render('agenda'),
+    agenda: agendaView.render,
     reports: () => plannedRoutesView.render('reports'),
     settings: () => plannedRoutesView.render('settings')
   };
@@ -129,6 +137,7 @@ function render() {
   dashboardView.bindActions(view);
   patientsView.bindActions(view);
   patientWorkspaceView.bindActions(view);
+  agendaView.bindActions(view);
   f0Views.bindActions(view);
 }
 
