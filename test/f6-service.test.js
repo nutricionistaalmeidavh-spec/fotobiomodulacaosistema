@@ -46,7 +46,7 @@ test('F6 links evidence to an exact immutable protocol version without mutating 
     changeSummary: 'Referência original',
     parameters: { wavelengthNm: 808, powerMw: 100, timeSeconds: 40, areaCm2: 0.5 }
   });
-  const version = protocol.versions[0];
+  const version = service.listProtocolVersions(protocol.id)[0];
   const before = service.getProtocolVersion(version.id);
 
   const evidence = service.createEvidence({
