@@ -3,14 +3,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDatabase } from '../db/database.js';
-import { createF4Service } from './f4-service.js';
+import { createF4MvpService } from './f4-mvp-service.js';
 import { createAuthService } from './auth-service.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(here, 'public');
 const contentTypes = Object.freeze({
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8'
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8'
 });
 
 function sendJson(response, status, payload, headers = {}) {
@@ -26,8 +28,7 @@ async function readJson(request) {
     if (size > 8 * 1024 * 1024) throw new Error('Request body is too large');
     chunks.push(chunk);
   }
-  if (!chunks.length) return {};
-  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  return chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {};
 }
 
 function parseCookies(request) {
@@ -50,8 +51,9 @@ function clearSessionCookie(request) {
 
 function serveStatic(response, pathname) {
   const requested = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
+  const root = path.resolve(publicDir);
   const filePath = path.resolve(publicDir, requested);
-  if (!filePath.startsWith(`${path.resolve(publicDir)}${path.sep}`) && filePath !== path.join(publicDir, 'index.html')) {
+  if ((!filePath.startsWith(`${root}${path.sep}`) && filePath !== path.join(root, 'index.html'))) {
     response.writeHead(403); response.end('Forbidden'); return;
   }
   if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
@@ -81,7 +83,7 @@ export async function createAppServer({
 } = {}) {
   if (dbFile !== ':memory:') fs.mkdirSync(path.dirname(path.resolve(dbFile)), { recursive: true });
   const db = openDatabase(dbFile);
-  const service = createF4Service(db, { storageRoot, backupRoot });
+  const service = createF4MvpService(db, { storageRoot, backupRoot });
   const auth = createAuthService(db);
   service.ensureSeedData();
 
@@ -89,6 +91,7 @@ export async function createAppServer({
     const url = new URL(request.url, 'http://127.0.0.1');
     const cookies = parseCookies(request);
     const sessionToken = cookies.pbm_session || '';
+
     try {
       if (request.method === 'GET' && url.pathname === '/api/auth/status') {
         return sendJson(response, 200, auth.getStatus(sessionToken));
@@ -99,8 +102,9 @@ export async function createAppServer({
           const result = auth.setup(body);
           return sendJson(response, 201, { user: result.user }, { 'set-cookie': sessionCookie(result.token, request) });
         } catch (error) {
-          const status = /já concluída/i.test(error?.message || '') ? 409 : 400;
-          return sendJson(response, status, { error: error?.message || 'Falha na configuração inicial.' });
+          return sendJson(response, /já concluída/i.test(error?.message || '') ? 409 : 400, {
+            error: error?.message || 'Falha na configuração inicial.'
+          });
         }
       }
       if (request.method === 'POST' && url.pathname === '/api/auth/login') {
@@ -124,22 +128,22 @@ export async function createAppServer({
         const actorId = user.professionalId;
 
         if (request.method === 'GET' && url.pathname === '/api/status') return sendJson(response, 200, service.getStatus());
+
         if (request.method === 'GET' && url.pathname === '/api/patients') {
           return sendJson(response, 200, { patients: service.listPatients() });
         }
         if (request.method === 'POST' && url.pathname === '/api/patients') {
-          const patient = service.createPatient(await readJson(request), actorId);
-          return sendJson(response, 201, { patient });
+          return sendJson(response, 201, { patient: service.createPatient(await readJson(request), actorId) });
         }
         const patientMatch = url.pathname.match(/^\/api\/patients\/([^/]+)$/);
         if (request.method === 'PATCH' && patientMatch) {
-          const patient = service.updatePatient(decodeURIComponent(patientMatch[1]), await readJson(request), actorId);
-          return sendJson(response, 200, { patient });
+          return sendJson(response, 200, {
+            patient: service.updatePatient(decodeURIComponent(patientMatch[1]), await readJson(request), actorId)
+          });
         }
         const archiveMatch = url.pathname.match(/^\/api\/patients\/([^/]+)\/archive$/);
         if (request.method === 'POST' && archiveMatch) {
-          const patient = service.archivePatient(decodeURIComponent(archiveMatch[1]), actorId);
-          return sendJson(response, 200, { patient });
+          return sendJson(response, 200, { patient: service.archivePatient(decodeURIComponent(archiveMatch[1]), actorId) });
         }
         const workspaceMatch = url.pathname.match(/^\/api\/patients\/([^/]+)\/workspace$/);
         if (request.method === 'GET' && workspaceMatch) {
@@ -147,18 +151,18 @@ export async function createAppServer({
         }
         const patientEncounterMatch = url.pathname.match(/^\/api\/patients\/([^/]+)\/encounters$/);
         if (request.method === 'POST' && patientEncounterMatch) {
-          const encounter = service.startEncounter(decodeURIComponent(patientEncounterMatch[1]), await readJson(request), actorId);
-          return sendJson(response, 201, { encounter });
+          return sendJson(response, 201, {
+            encounter: service.startEncounter(decodeURIComponent(patientEncounterMatch[1]), await readJson(request), actorId)
+          });
         }
+
         const finalizeMatch = url.pathname.match(/^\/api\/encounters\/([^/]+)\/finalize$/);
         if (request.method === 'POST' && finalizeMatch) {
-          const encounter = service.finalizeEncounter(decodeURIComponent(finalizeMatch[1]), actorId);
-          return sendJson(response, 200, { encounter });
+          return sendJson(response, 200, { encounter: service.finalizeEncounter(decodeURIComponent(finalizeMatch[1]), actorId) });
         }
         const encounterPdfMatch = url.pathname.match(/^\/api\/encounters\/([^/]+)\/pdf$/);
         if (request.method === 'POST' && encounterPdfMatch) {
-          const document = service.finalizeEncounterPdf(decodeURIComponent(encounterPdfMatch[1]), actorId);
-          return sendJson(response, 201, { document });
+          return sendJson(response, 201, { document: service.finalizeEncounterPdf(decodeURIComponent(encounterPdfMatch[1]), actorId) });
         }
         if (request.method === 'GET' && url.pathname === '/api/encounters/open') {
           return sendJson(response, 200, { encounters: service.listOpenEncounters() });
@@ -170,14 +174,16 @@ export async function createAppServer({
         }
         if (patientConsentsMatch && request.method === 'POST') {
           const patientId = decodeURIComponent(patientConsentsMatch[1]);
-          const consent = service.acceptConsent({ patientId, ...(await readJson(request)) }, actorId);
-          return sendJson(response, 201, { consent });
+          return sendJson(response, 201, {
+            consent: service.acceptConsent({ patientId, ...(await readJson(request)) }, actorId)
+          });
         }
         const revokeConsentMatch = url.pathname.match(/^\/api\/consents\/([^/]+)\/revoke$/);
         if (revokeConsentMatch && request.method === 'POST') {
           const body = await readJson(request);
-          const consent = service.revokeConsent(decodeURIComponent(revokeConsentMatch[1]), body.reason, actorId);
-          return sendJson(response, 201, { consent });
+          return sendJson(response, 201, {
+            consent: service.revokeConsent(decodeURIComponent(revokeConsentMatch[1]), body.reason, actorId)
+          });
         }
 
         const patientMediaMatch = url.pathname.match(/^\/api\/patients\/([^/]+)\/media$/);
@@ -186,8 +192,9 @@ export async function createAppServer({
         }
         if (patientMediaMatch && request.method === 'POST') {
           const patientId = decodeURIComponent(patientMediaMatch[1]);
-          const media = service.storeClinicalImage({ patientId, ...(await readJson(request)) }, actorId);
-          return sendJson(response, 201, { media });
+          return sendJson(response, 201, {
+            media: service.storeClinicalImage({ patientId, ...(await readJson(request)) }, actorId)
+          });
         }
 
         const patientBasicOutcomesMatch = url.pathname.match(/^\/api\/patients\/([^/]+)\/basic-outcomes$/);
@@ -196,67 +203,91 @@ export async function createAppServer({
         }
         if (patientBasicOutcomesMatch && request.method === 'POST') {
           const patientId = decodeURIComponent(patientBasicOutcomesMatch[1]);
-          const outcome = service.recordBasicOutcome({ patientId, ...(await readJson(request)) }, actorId);
-          return sendJson(response, 201, { outcome });
+          return sendJson(response, 201, {
+            outcome: service.recordBasicOutcome({ patientId, ...(await readJson(request)) }, actorId)
+          });
         }
 
         if (request.method === 'GET' && url.pathname === '/api/equipment') {
           return sendJson(response, 200, { equipment: service.listEquipmentDetailed() });
         }
         if (request.method === 'POST' && url.pathname === '/api/equipment') {
-          const equipment = service.createEquipment(await readJson(request), actorId);
-          return sendJson(response, 201, { equipment });
+          return sendJson(response, 201, { equipment: service.createEquipment(await readJson(request), actorId) });
         }
         const equipmentMatch = url.pathname.match(/^\/api\/equipment\/([^/]+)$/);
         if (request.method === 'PATCH' && equipmentMatch) {
-          const equipment = service.updateEquipment(decodeURIComponent(equipmentMatch[1]), await readJson(request), actorId);
-          return sendJson(response, 200, { equipment });
+          return sendJson(response, 200, {
+            equipment: service.updateEquipment(decodeURIComponent(equipmentMatch[1]), await readJson(request), actorId)
+          });
         }
         const applicatorMatch = url.pathname.match(/^\/api\/equipment\/([^/]+)\/applicators$/);
         if (request.method === 'POST' && applicatorMatch) {
-          const applicator = service.createApplicator(decodeURIComponent(applicatorMatch[1]), await readJson(request), actorId);
-          return sendJson(response, 201, { applicator });
+          return sendJson(response, 201, {
+            applicator: service.createApplicator(decodeURIComponent(applicatorMatch[1]), await readJson(request), actorId)
+          });
         }
 
         if (request.method === 'GET' && url.pathname === '/api/protocols') {
           const filters = protocolFilters(url);
           const source = Object.keys(filters).length ? service.searchProtocols(filters) : service.listProtocols();
-          const protocols = source.map((protocol) => ({ ...protocol, versions: service.listProtocolVersions(protocol.id) }));
-          return sendJson(response, 200, { protocols });
+          return sendJson(response, 200, {
+            protocols: source.map((protocol) => ({ ...protocol, versions: service.listProtocolVersions(protocol.id) }))
+          });
         }
         if (request.method === 'POST' && url.pathname === '/api/protocols') {
-          const body = await readJson(request);
-          const protocol = service.createProtocol(body, actorId);
-          return sendJson(response, 201, { protocol: { ...protocol, versions: service.listProtocolVersions(protocol.id) } });
+          const protocol = service.createProtocol(await readJson(request), actorId);
+          return sendJson(response, 201, {
+            protocol: { ...protocol, versions: service.listProtocolVersions(protocol.id) }
+          });
         }
         const versionMatch = url.pathname.match(/^\/api\/protocols\/([^/]+)\/versions$/);
         if (request.method === 'POST' && versionMatch) {
-          const version = service.createProtocolVersion(decodeURIComponent(versionMatch[1]), await readJson(request), actorId);
-          return sendJson(response, 201, { version });
+          return sendJson(response, 201, {
+            version: service.createProtocolVersion(decodeURIComponent(versionMatch[1]), await readJson(request), actorId)
+          });
         }
         const adaptMatch = url.pathname.match(/^\/api\/protocol-versions\/([^/]+)\/adapt$/);
         if (request.method === 'POST' && adaptMatch) {
           const body = await readJson(request);
-          const adaptation = service.adaptProtocolVersion(
-            decodeURIComponent(adaptMatch[1]), body.applicatorId, body.selectedPowerMw ?? null, actorId
-          );
-          return sendJson(response, 200, { adaptation });
+          return sendJson(response, 200, {
+            adaptation: service.adaptProtocolVersion(
+              decodeURIComponent(adaptMatch[1]), body.applicatorId, body.selectedPowerMw ?? null, actorId
+            )
+          });
         }
 
-        if (request.method === 'GET' && url.pathname === '/api/sessions') return sendJson(response, 200, { sessions: service.listSessions() });
+        if (request.method === 'GET' && url.pathname === '/api/sessions') {
+          return sendJson(response, 200, { sessions: service.listSessions() });
+        }
         if (request.method === 'POST' && url.pathname === '/api/sessions') {
-          const session = service.createTreatmentSession(await readJson(request), actorId);
-          return sendJson(response, 201, { session });
+          return sendJson(response, 201, { session: service.createTreatmentSession(await readJson(request), actorId) });
         }
+        const applicationPointMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/application-points$/);
+        if (request.method === 'POST' && applicationPointMatch) {
+          return sendJson(response, 201, {
+            applicationPoint: service.recordApplicationPoint(
+              decodeURIComponent(applicationPointMatch[1]), await readJson(request), actorId
+            )
+          });
+        }
+
         if (request.method === 'POST' && url.pathname === '/api/backup') {
-          const backup = service.createLocalBackup(actorId);
-          return sendJson(response, 201, { backup });
+          return sendJson(response, 201, { backup: service.createLocalBackup(actorId) });
         }
-        if (request.method === 'GET' && url.pathname === '/api/audit') return sendJson(response, 200, service.getAudit());
+        if (request.method === 'POST' && url.pathname === '/api/backup/verify') {
+          const body = await readJson(request);
+          return sendJson(response, 200, { verification: service.verifyLocalBackup(body.backupPath) });
+        }
+
+        if (request.method === 'GET' && url.pathname === '/api/audit') {
+          return sendJson(response, 200, service.getAudit());
+        }
         return sendJson(response, 404, { error: 'API route not found' });
       }
 
-      if (request.method !== 'GET') { response.writeHead(405); response.end('Method not allowed'); return; }
+      if (request.method !== 'GET') {
+        response.writeHead(405); response.end('Method not allowed'); return;
+      }
       serveStatic(response, url.pathname);
     } catch (error) {
       sendJson(response, 400, { error: error?.message || 'Unexpected error' });
@@ -267,6 +298,7 @@ export async function createAppServer({
     server.once('error', reject);
     server.listen(port, '127.0.0.1', resolve);
   });
+
   const address = server.address();
   const actualPort = typeof address === 'object' && address ? address.port : port;
   return {
