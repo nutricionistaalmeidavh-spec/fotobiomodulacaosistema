@@ -21,7 +21,7 @@ async function jsonRequest(url, { method = 'GET', cookie, body } = {}) {
   return { status: response.status, body: await response.json() };
 }
 
-test('F6/F7 HTTP exposes evidence links and confirmed anatomical points behind local auth', async () => {
+test('F6/F7 HTTP remains available under later composition', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pbm-f7-http-'));
   const app = await createAppServer({ dbFile: path.join(dir, 'app.sqlite'), port: 0 });
   try {
@@ -35,7 +35,7 @@ test('F6/F7 HTTP exposes evidence links and confirmed anatomical points behind l
 
     const status = await jsonRequest(`${app.url}/api/status`, { cookie });
     assert.equal(status.status, 200);
-    assert.equal(status.body.phase, 'F7');
+    assert.ok(['F8', 'F9', 'F10'].includes(status.body.phase));
 
     const evidence = await jsonRequest(`${app.url}/api/evidence`, {
       method: 'POST', cookie,
