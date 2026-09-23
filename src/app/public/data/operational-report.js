@@ -1,10 +1,11 @@
 function normalizeDay(value) {
-  if (value == null || value === '') return null;
-  const raw = String(value).trim().slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) throw new TypeError('Período inválido.');
-  const parsed = new Date(`${raw}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== raw) throw new TypeError('Período inválido.');
-  return raw;
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  const day = raw.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new TypeError('Período inválido.');
+  const parsed = new Date(`${day}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== day) throw new TypeError('Período inválido.');
+  return day;
 }
 
 export function validateReportPeriod(filters = {}) {
@@ -15,9 +16,9 @@ export function validateReportPeriod(filters = {}) {
 }
 
 function sessionDay(session) {
-  const value = session?.createdAt || session?.startedAt || session?.completedAt || session?.date || '';
+  const value = session?.startedAt || session?.completedAt || session?.createdAt || session?.date || '';
   const day = String(value).slice(0, 10);
-  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : null;
+  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : '';
 }
 
 function inPeriod(session, period) {
@@ -45,20 +46,22 @@ export function deriveOperationalReport({ patients = [], sessions = [], protocol
 
   const usage = new Map();
   for (const session of selectedSessions) {
-    const protocol = String(session?.protocolTitle || titlesByVersion.get(session?.protocolVersionId) || 'Sem protocolo').trim() || 'Sem protocolo';
-    usage.set(protocol, (usage.get(protocol) || 0) + 1);
+    const name = String(session?.protocolTitle || titlesByVersion.get(session?.protocolVersionId) || session?.protocolId || 'Sem protocolo').trim() || 'Sem protocolo';
+    usage.set(name, (usage.get(name) || 0) + 1);
   }
 
   const protocolUsage = [...usage.entries()]
-    .map(([protocol, count]) => ({ protocol, count }))
-    .sort((a, b) => b.count - a.count || a.protocol.localeCompare(b.protocol, 'pt-BR'));
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'pt-BR'));
 
   return {
-    period,
+    filters: period,
     sessionCount: selectedSessions.length,
     activePatientCount: patients.filter((patient) => patient.status === 'active').length,
-    pendingFollowUpCount: patients.filter((patient) => Array.isArray(patient.pendingItems) && patient.pendingItems.length > 0).length,
+    pendingFollowUpCount: patients.filter((patient) => patient.status === 'active' && Array.isArray(patient.pendingItems) && patient.pendingItems.length > 0).length,
     divergenceCount: selectedSessions.filter(energyDiverges).length,
-    protocolUsage
+    protocolUsage,
+    protocolCount: protocols.length,
+    basis: { patients: 'local', sessions: 'persisted', protocols: 'persisted' }
   };
 }
