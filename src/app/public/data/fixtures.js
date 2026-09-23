@@ -10,6 +10,10 @@ export const UI_FIXTURES = Object.freeze({
       { id: 'activity-3', title: 'Protocolo revisado', detail: 'Tendinopatia de ombro · v4', meta: 'Ontem' }
     ]
   },
+  agenda: [
+    { id: 'local-agenda-seed-1', patientId: 'mock-patient-001', startsAt: '2026-09-29T09:00', status: 'scheduled', note: 'Retorno programado' },
+    { id: 'local-agenda-seed-2', patientId: 'mock-patient-002', startsAt: '2026-09-30T15:30', status: 'scheduled', note: 'Reavaliação clínica' }
+  ],
   patients: [
     {
       id: 'mock-patient-001',
@@ -32,7 +36,11 @@ export const UI_FIXTURES = Object.freeze({
       timeline: [
         { id: 'ana-t1', title: 'Sessão concluída', description: 'Aplicação registrada conforme planejamento.', meta: '22/09/2026' },
         { id: 'ana-t2', title: 'Protocolo atualizado', description: 'Analgesia cervical passou para v3.', meta: '15/09/2026' }
-      ]
+      ],
+      evolution: [
+        { id: 'ana-e1', date: '2026-09-22', category: 'session', title: 'Sessão concluída', notes: 'Aplicação registrada conforme planejamento.', sessionId: null, protocolVersionId: null }
+      ],
+      photos: []
     },
     {
       id: 'mock-patient-002',
@@ -55,7 +63,11 @@ export const UI_FIXTURES = Object.freeze({
       timeline: [
         { id: 'carlos-t1', title: 'Alerta clínico registrado', description: 'Revisão medicamentosa necessária antes da sessão.', meta: '18/09/2026' },
         { id: 'carlos-t2', title: 'Sessão concluída', description: 'Sem intercorrência registrada.', meta: '18/09/2026' }
-      ]
+      ],
+      evolution: [
+        { id: 'carlos-e1', date: '2026-09-18', category: 'assessment', title: 'Alerta clínico registrado', notes: 'Revisão medicamentosa necessária antes da sessão.', sessionId: null, protocolVersionId: null }
+      ],
+      photos: []
     },
     {
       id: 'mock-patient-003',
@@ -77,7 +89,11 @@ export const UI_FIXTURES = Object.freeze({
       },
       timeline: [
         { id: 'marina-t1', title: 'Ciclo concluído', description: 'Atendimento encerrado no ciclo atual.', meta: '10/08/2026' }
-      ]
+      ],
+      evolution: [
+        { id: 'marina-e1', date: '2026-08-10', category: 'follow-up', title: 'Ciclo concluído', notes: 'Atendimento encerrado no ciclo atual.', sessionId: null, protocolVersionId: null }
+      ],
+      photos: []
     }
   ]
 });
