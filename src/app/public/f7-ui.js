@@ -175,7 +175,11 @@ async function mountBodyMap() {
   const workspace = view.querySelector('[data-patient-workspace]');
   if (!workspace || workspace.querySelector('[data-f7-body-map]')) return;
   await ensureCatalog();
-  if (!workspace.isConnected || workspace !== view.querySelector('[data-patient-workspace]')) return;
+  if (
+    !workspace.isConnected ||
+    workspace !== view.querySelector('[data-patient-workspace]') ||
+    workspace.querySelector('[data-f7-body-map]')
+  ) return;
 
   const panel = document.createElement('section');
   panel.className = 'card f7-body-map';
