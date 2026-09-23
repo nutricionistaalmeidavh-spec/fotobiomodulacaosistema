@@ -27,3 +27,16 @@ BEFORE DELETE ON application_points
 BEGIN
   SELECT RAISE(ABORT, 'application points are immutable; append a new record');
 END;
+
+CREATE TRIGGER documents_finalized_immutable_update
+BEFORE UPDATE ON documents
+WHEN OLD.status = 'finalized'
+BEGIN
+  SELECT RAISE(ABORT, 'finalized documents are immutable');
+END;
+
+CREATE TRIGGER documents_immutable_delete
+BEFORE DELETE ON documents
+BEGIN
+  SELECT RAISE(ABORT, 'documents are immutable; create a replacement document');
+END;
