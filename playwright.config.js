@@ -10,7 +10,8 @@ export default defineConfig({
   projects: [
     { name: 'base-f0-f3', testMatch: 'ui.spec.js' },
     { name: 'f4-mvp', testMatch: 'f4-mvp.spec.js', dependencies: ['base-f0-f3'] },
-    { name: 'f6-f7', testMatch: 'f6-f7.spec.js', dependencies: ['f4-mvp'] }
+    { name: 'f6-f7', testMatch: 'f6-f7.spec.js', dependencies: ['f4-mvp'] },
+    { name: 'f8', testMatch: 'f8.spec.js', dependencies: ['f6-f7'] }
   ],
   use: {
     baseURL: 'http://127.0.0.1:8788',
