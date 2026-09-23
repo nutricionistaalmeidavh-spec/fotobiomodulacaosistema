@@ -21,12 +21,12 @@ function jsFiles(dir) {
 }
 
 test('UI foundation is split into focused reusable browser modules', () => {
-  for (const file of ['ui/navigation.js', 'ui/primitives.js', 'features/f0-views.js', 'features/planned-routes.js']) {
+  for (const file of ['ui/navigation.js', 'ui/primitives.js', 'features/f0-views.js', 'features/audit.js', 'features/planned-routes.js']) {
     assert.equal(fs.existsSync(new URL(file, publicUrl)), true, `${file} should exist`);
   }
   assert.match(app, /from ['"]\.\/ui\/navigation\.js['"]/);
   assert.match(app, /from ['"]\.\/features\/f0-views\.js['"]/);
-  assert.match(app, /from ['"]\.\/features\/planned-routes\.js['"]/);
+  assert.match(app, /from ['"]\.\/features\/audit\.js['"]/);
 });
 
 test('primary navigation registry exposes the planned product routes', () => {
@@ -37,24 +37,25 @@ test('primary navigation registry exposes the planned product routes', () => {
   assert.match(html, /data-mobile-nav-toggle/);
 });
 
-test('planned route module exposes nonblank boundaries without fake persistence', () => {
+test('settings remains an explicit planned boundary without fake persistence', () => {
   const planned = readPublic('features/planned-routes.js');
-  for (const route of ['agenda', 'reports', 'settings']) assert.match(planned, new RegExp(route));
+  assert.match(planned, /settings/);
   assert.match(planned, /sem simular persistência/i);
 });
 
-test('F0 clinical safety surfaces remain represented after the UI refactor', () => {
+test('F0 clinical safety surfaces remain represented after modular extraction', () => {
   const f0Views = readPublic('features/f0-views.js');
   const treatmentWorkflow = readPublic('features/treatment-workflow.js');
+  const audit = readPublic('features/audit.js');
   assert.match(f0Views, /Versionamento imutável/);
-  assert.match(f0Views, /Auditoria append-only/);
   assert.match(treatmentWorkflow, /Parâmetros planejados e aplicados permanecem separados/i);
   assert.match(treatmentWorkflow, /Planejado/);
   assert.match(treatmentWorkflow, /Aplicado/);
   assert.match(f0Views, /Informe o motivo profissional/);
   assert.doesNotMatch(f0Views, /data-edit-protocol-version/);
   assert.match(f0Views, /renderTreatmentWorkflow/);
-  assert.match(f0Views, /audit/);
+  assert.match(audit, /Auditoria append-only/);
+  assert.match(audit, /Persistido · backend F0/);
 });
 
 test('only F0ApiAdapter contains frontend API endpoints', () => {
