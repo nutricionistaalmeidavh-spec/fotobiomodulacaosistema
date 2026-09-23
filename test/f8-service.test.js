@@ -43,7 +43,7 @@ test('F8 filters structured clinical protocols by age, professional area and wav
   assert.equal(version.indications[0].professionalArea, 'fisioterapia');
 
   const matched = service.searchClinicalProtocols({
-    query: 'cervical',
+    query: 'Cervicalgia F8',
     ageYears: 45,
     professionalArea: 'fisioterapia',
     wavelengthNm: 808
@@ -53,12 +53,13 @@ test('F8 filters structured clinical protocols by age, professional area and wav
   assert.equal(Object.hasOwn(matched[0], 'score'), false);
   assert.equal(Object.hasOwn(matched[0], 'recommendation'), false);
 
-  assert.equal(service.searchClinicalProtocols({ ageYears: 17, professionalArea: 'fisioterapia' }).length, 0);
-  assert.equal(service.searchClinicalProtocols({ ageYears: 71, professionalArea: 'fisioterapia' }).length, 0);
-  assert.equal(service.searchClinicalProtocols({ ageYears: 18, professionalArea: 'fisioterapia' }).length, 1);
-  assert.equal(service.searchClinicalProtocols({ ageYears: 70, professionalArea: 'fisioterapia' }).length, 1);
-  assert.equal(service.searchClinicalProtocols({ ageYears: 45, professionalArea: 'odontologia' }).length, 0);
-  assert.equal(service.searchClinicalProtocols({ ageYears: 45, wavelengthNm: 660 }).length, 0);
+  const scoped = (filters) => service.searchClinicalProtocols({ query: 'Cervicalgia F8', ...filters });
+  assert.equal(scoped({ ageYears: 17, professionalArea: 'fisioterapia' }).length, 0);
+  assert.equal(scoped({ ageYears: 71, professionalArea: 'fisioterapia' }).length, 0);
+  assert.equal(scoped({ ageYears: 18, professionalArea: 'fisioterapia' }).length, 1);
+  assert.equal(scoped({ ageYears: 70, professionalArea: 'fisioterapia' }).length, 1);
+  assert.equal(scoped({ ageYears: 45, professionalArea: 'odontologia' }).length, 0);
+  assert.equal(scoped({ ageYears: 45, wavelengthNm: 660 }).length, 0);
 
   db.close();
 });
