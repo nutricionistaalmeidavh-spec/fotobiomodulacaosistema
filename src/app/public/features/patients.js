@@ -1,4 +1,3 @@
-import { assertUiProvider } from '../data/contracts.js';
 import { dialogFrame, emptyState, escapeHtml, fieldMessage, statusBadge } from '../ui/primitives.js';
 
 function normalizeSearch(value) {
@@ -25,9 +24,12 @@ export function filterPatients(patients, query = '', status = 'all') {
   });
 }
 
-export function createPatientsView({ provider, onOpenPatient, onChanged, onMessage }) {
-  assertUiProvider(provider);
-  const local = { query: '', status: 'all', dialogOpen: false, error: '' };
+export function createPatientsView({ gateway, onOpenPatient, onChanged, onMessage }) {
+  const local = { patients: [], query: '', status: 'all', dialogOpen: false, error: '' };
+
+  async function load() {
+    local.patients = await gateway.listPatients();
+  }
 
   function patientRows(patients) {
     return patients.map((patient) => `<tr data-patient-row>
@@ -65,7 +67,7 @@ export function createPatientsView({ provider, onOpenPatient, onChanged, onMessa
   }
 
   function render() {
-    const allPatients = provider.listPatients();
+    const allPatients = local.patients;
     const patients = filterPatients(allPatients, local.query, local.status);
     const content = patients.length
       ? `<div class="table-wrap patient-table-wrap"><table class="patient-table"><thead><tr><th>Paciente</th><th>Status</th><th>Observação</th><th>Ação</th></tr></thead><tbody>${patientRows(patients)}</tbody></table></div>`
@@ -78,7 +80,7 @@ export function createPatientsView({ provider, onOpenPatient, onChanged, onMessa
 
     return `<div class="page-stack" data-patients-view>
       <div class="page-heading">
-        <div><span class="eyebrow">PACIENTES</span><h1>Pacientes</h1><p>Busca, cadastro local e acesso ao contexto clínico sem depender da persistência F1.</p></div>
+        <div><span class="eyebrow">PACIENTES</span><h1>Pacientes</h1><p>Busca, cadastro local e acesso ao contexto clínico através da camada de dados preparada para backend.</p></div>
         <button type="button" class="primary" data-new-patient>Novo paciente</button>
       </div>
       <section class="card patient-directory">
@@ -144,7 +146,7 @@ export function createPatientsView({ provider, onOpenPatient, onChanged, onMessa
     root.querySelector('[data-dialog-backdrop]')?.addEventListener('mousedown', (event) => {
       if (event.target === event.currentTarget) closeDialog();
     });
-    root.querySelector('[data-patient-save]')?.addEventListener('click', () => {
+    root.querySelector('[data-patient-save]')?.addEventListener('click', async () => {
       const fullName = root.querySelector('[name="patient-name"]')?.value ?? '';
       if (!fullName.trim()) {
         local.error = 'Informe o nome do paciente.';
@@ -152,20 +154,26 @@ export function createPatientsView({ provider, onOpenPatient, onChanged, onMessa
         root.querySelector('[name="patient-name"]')?.focus();
         return;
       }
-      const created = provider.createPatient({
-        fullName,
-        email: root.querySelector('[name="patient-email"]')?.value ?? '',
-        phone: root.querySelector('[name="patient-phone"]')?.value ?? '',
-        notes: root.querySelector('[name="patient-notes"]')?.value ?? ''
-      });
-      local.dialogOpen = false;
-      local.error = '';
-      local.query = '';
-      local.status = 'all';
-      onMessage?.(`Paciente ${created.fullName} adicionado somente ao ambiente de interface.`, 'success');
-      rerender();
+      try {
+        const created = await gateway.createPatient({
+          fullName,
+          email: root.querySelector('[name="patient-email"]')?.value ?? '',
+          phone: root.querySelector('[name="patient-phone"]')?.value ?? '',
+          notes: root.querySelector('[name="patient-notes"]')?.value ?? ''
+        });
+        await load();
+        local.dialogOpen = false;
+        local.error = '';
+        local.query = '';
+        local.status = 'all';
+        onMessage?.(`Paciente ${created.fullName} adicionado somente ao ambiente de interface.`, 'success');
+        rerender();
+      } catch (error) {
+        local.error = error.message;
+        rerender();
+      }
     });
   }
 
-  return { render, bindActions };
+  return { load, render, bindActions };
 }
