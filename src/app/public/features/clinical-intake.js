@@ -1,4 +1,3 @@
-import { assertUiProvider } from '../data/contracts.js';
 import { escapeHtml, statusBadge } from '../ui/primitives.js';
 
 const SAFETY_ITEMS = Object.freeze([
@@ -14,12 +13,19 @@ function checked(value) {
   return value ? 'checked' : '';
 }
 
-export function createClinicalIntakePanels({ provider, patientId, onChanged, onMessage }) {
-  assertUiProvider(provider);
-  if (typeof provider.getClinicalIntake !== 'function') throw new TypeError('UI provider must implement getClinicalIntake()');
+function emptyIntake() {
+  return { anamnesis: {}, consent: {}, safetyChecklist: {} };
+}
+
+export function createClinicalIntakePanels({ gateway, patientId, onChanged, onMessage }) {
+  const local = { intake: emptyIntake() };
+
+  async function load() {
+    local.intake = await gateway.getClinicalIntake(patientId) || emptyIntake();
+  }
 
   function intake() {
-    return provider.getClinicalIntake(patientId) || { anamnesis: {}, consent: {}, safetyChecklist: {} };
+    return local.intake || emptyIntake();
   }
 
   function safetyChecklist() {
@@ -64,31 +70,43 @@ export function createClinicalIntakePanels({ provider, patientId, onChanged, onM
   }
 
   function bindActions(root = document) {
-    root.querySelector('[data-save-anamnesis]')?.addEventListener('click', () => {
-      provider.updateAnamnesis?.(patientId, {
-        complaint: root.querySelector('[name="anamnesis-complaint"]')?.value ?? '',
-        goal: root.querySelector('[name="anamnesis-goal"]')?.value ?? '',
-        medications: root.querySelector('[name="anamnesis-medications"]')?.value ?? '',
-        precautions: root.querySelector('[name="anamnesis-precautions"]')?.value ?? ''
-      });
-      onMessage?.('Rascunho local atualizado; nenhuma persistência clínica foi realizada.', 'success');
-      onChanged?.();
+    root.querySelector('[data-save-anamnesis]')?.addEventListener('click', async () => {
+      try {
+        local.intake = await gateway.updateAnamnesis(patientId, {
+          complaint: root.querySelector('[name="anamnesis-complaint"]')?.value ?? '',
+          goal: root.querySelector('[name="anamnesis-goal"]')?.value ?? '',
+          medications: root.querySelector('[name="anamnesis-medications"]')?.value ?? '',
+          precautions: root.querySelector('[name="anamnesis-precautions"]')?.value ?? ''
+        });
+        onMessage?.('Rascunho local atualizado; nenhuma persistência clínica foi realizada.', 'success');
+        onChanged?.();
+      } catch (error) {
+        onMessage?.(error.message);
+      }
     });
 
-    root.querySelector('[data-save-safety]')?.addEventListener('click', () => {
+    root.querySelector('[data-save-safety]')?.addEventListener('click', async () => {
       const patch = {};
       root.querySelectorAll('[data-safety-key]').forEach((input) => { patch[input.dataset.safetyKey] = input.checked; });
-      provider.updateSafetyChecklist?.(patientId, patch);
-      onMessage?.('Checklist C09 atualizado somente no estado local da interface.', 'success');
-      onChanged?.();
+      try {
+        local.intake = await gateway.updateSafetyChecklist(patientId, patch);
+        onMessage?.('Checklist C09 atualizado somente no estado local da interface.', 'success');
+        onChanged?.();
+      } catch (error) {
+        onMessage?.(error.message);
+      }
     });
 
-    root.querySelector('[data-simulate-consent]')?.addEventListener('click', () => {
-      provider.updateConsent?.(patientId, { status: 'collected-local', updatedAt: 'Simulação local atual' });
-      onMessage?.('Consentimento marcado somente na simulação local de interface.', 'success');
-      onChanged?.();
+    root.querySelector('[data-simulate-consent]')?.addEventListener('click', async () => {
+      try {
+        local.intake = await gateway.updateConsent(patientId, { status: 'collected-local', updatedAt: 'Simulação local atual' });
+        onMessage?.('Consentimento marcado somente na simulação local de interface.', 'success');
+        onChanged?.();
+      } catch (error) {
+        onMessage?.(error.message);
+      }
     });
   }
 
-  return { anamnesis, consents, safetyChecklist, bindActions };
+  return { load, anamnesis, consents, safetyChecklist, bindActions };
 }
