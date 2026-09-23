@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDatabase } from '../db/database.js';
-import { createF7Service } from './f7-service.js';
+import { createF8Service } from './f8-service.js';
 import { createAuthService } from './auth-service.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -75,6 +75,15 @@ function protocolFilters(url) {
   return filters;
 }
 
+function clinicalEngineFilters(url) {
+  const filters = protocolFilters(url);
+  for (const key of ['professionalArea', 'ageYears', 'wavelengthNm', 'applicatorId', 'selectedPowerMw']) {
+    const value = String(url.searchParams.get(key) ?? '').trim();
+    if (value) filters[key] = value;
+  }
+  return filters;
+}
+
 function evidenceFilters(url) {
   const filters = {};
   const mappings = [
@@ -99,7 +108,7 @@ export async function createAppServer({
 } = {}) {
   if (dbFile !== ':memory:') fs.mkdirSync(path.dirname(path.resolve(dbFile)), { recursive: true });
   const db = openDatabase(dbFile);
-  const service = createF7Service(db, { storageRoot, backupRoot });
+  const service = createF8Service(db, { storageRoot, backupRoot });
   const auth = createAuthService(db);
   service.ensureSeedData();
 
@@ -144,6 +153,10 @@ export async function createAppServer({
         const actorId = user.professionalId;
 
         if (request.method === 'GET' && url.pathname === '/api/status') return sendJson(response, 200, service.getStatus());
+
+        if (request.method === 'GET' && url.pathname === '/api/clinical-engine/protocols') {
+          return sendJson(response, 200, { results: service.searchClinicalProtocols(clinicalEngineFilters(url)) });
+        }
 
         if (request.method === 'GET' && url.pathname === '/api/evidence') {
           return sendJson(response, 200, { evidence: service.listEvidence(evidenceFilters(url)) });
