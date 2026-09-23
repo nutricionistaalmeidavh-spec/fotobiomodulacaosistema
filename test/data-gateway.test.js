@@ -63,4 +63,22 @@ test('persisted write failure propagates without local fallback', async () => {
   assert.equal(localWrites, 0);
 });
 
+test('gateway uses an injected operational report adapter when available', async () => {
+  let calls = 0;
+  const report = { sessionCount: 99 };
+  const gateway = createClinicalDataGateway({
+    f0Adapter: fakeF0(),
+    localAdapter: fakeLocal(),
+    reportAdapter: {
+      async getOperationalReport(filters) {
+        calls += 1;
+        assert.deepEqual(filters, { from: '2026-09-20' });
+        return report;
+      }
+    }
+  });
+  assert.equal(await gateway.getOperationalReport({ from: '2026-09-20' }), report);
+  assert.equal(calls, 1);
+});
+
 export { fakeF0, fakeLocal };
