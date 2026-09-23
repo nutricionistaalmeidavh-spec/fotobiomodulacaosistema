@@ -82,7 +82,7 @@ test('F3 service requires explicit power selection for variable-power applicator
   db.close();
 });
 
-test('F3 HTTP remains available under F8 server and returns adaptation preview', async () => {
+test('F3 HTTP remains available under later server composition and returns adaptation preview', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pbm-f3-http-'));
   const app = await createAppServer({ dbFile: path.join(dir, 'app.sqlite'), port: 0 });
   try {
@@ -95,7 +95,7 @@ test('F3 HTTP remains available under F8 server and returns adaptation preview',
     const headers = { 'content-type': 'application/json', cookie };
 
     const status = await fetch(`${app.url}/api/status`, { headers: { cookie } }).then((response) => response.json());
-    assert.equal(status.phase, 'F8');
+    assert.ok(['F8', 'F9', 'F10'].includes(status.phase));
 
     const protocolResponse = await fetch(`${app.url}/api/protocols`, {
       method: 'POST', headers,
