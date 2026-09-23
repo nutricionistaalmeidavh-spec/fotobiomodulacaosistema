@@ -3,15 +3,17 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const publicRoot = new URL('../src/app/public/', import.meta.url);
-const providerUrl = new URL('data/mock-provider.js', publicRoot);
+const localAdapterUrl = new URL('data/adapters/local-clinical-adapter.js', publicRoot);
+const fixturesUrl = new URL('data/fixtures.js', publicRoot);
 const patientsViewUrl = new URL('features/patients.js', publicRoot);
 const workspaceUrl = new URL('features/patient-workspace.js', publicRoot);
 
-test('mock UI provider exists and returns deterministic copied snapshots', async () => {
-  assert.equal(fs.existsSync(providerUrl), true, 'data/mock-provider.js should exist');
-  const { createMockUiProvider } = await import(providerUrl.href);
-  const provider = createMockUiProvider();
-  const dashboard = provider.getDashboard();
+test('local clinical adapter returns deterministic copied snapshots', async () => {
+  assert.equal(fs.existsSync(localAdapterUrl), true, 'local clinical adapter should exist');
+  const { createLocalClinicalAdapter } = await import(localAdapterUrl.href);
+  const { UI_FIXTURES } = await import(fixturesUrl.href);
+  const adapter = createLocalClinicalAdapter(UI_FIXTURES);
+  const dashboard = await adapter.getDashboard();
   assert.deepEqual(
     {
       sessionsToday: dashboard.sessionsToday,
@@ -21,22 +23,23 @@ test('mock UI provider exists and returns deterministic copied snapshots', async
     },
     { sessionsToday: 3, activePatients: 2, pendingFollowUps: 2, recentProtocols: 4 }
   );
-  const firstRead = provider.listPatients();
-  firstRead[0].fullName = 'mutated outside provider';
-  assert.notEqual(provider.listPatients()[0].fullName, 'mutated outside provider');
+  const firstRead = await adapter.listPatients();
+  firstRead[0].fullName = 'mutated outside adapter';
+  assert.notEqual((await adapter.listPatients())[0].fullName, 'mutated outside adapter');
 });
 
-test('mock patient creation uses unique local ids, validates name and preserves text as data', async () => {
-  const { createMockUiProvider } = await import(providerUrl.href);
-  const provider = createMockUiProvider();
-  assert.throws(() => provider.createPatient({ fullName: '   ' }), /obrigatório/i);
-  const one = provider.createPatient({ fullName: '<img src=x onerror=alert(1)>', email: 'safe@example.test' });
-  const two = provider.createPatient({ fullName: 'Paciente Dois' });
-  assert.match(one.id, /^mock-patient-/);
-  assert.match(two.id, /^mock-patient-/);
+test('local patient creation uses unique ids, validates name and preserves text as data', async () => {
+  const { createLocalClinicalAdapter } = await import(localAdapterUrl.href);
+  const { UI_FIXTURES } = await import(fixturesUrl.href);
+  const adapter = createLocalClinicalAdapter(UI_FIXTURES);
+  await assert.rejects(() => adapter.createPatient({ fullName: '   ' }), /obrigatório/i);
+  const one = await adapter.createPatient({ fullName: '<img src=x onerror=alert(1)>', email: 'safe@example.test' });
+  const two = await adapter.createPatient({ fullName: 'Paciente Dois' });
+  assert.match(one.id, /^local-patient-/);
+  assert.match(two.id, /^local-patient-/);
   assert.notEqual(one.id, two.id);
   assert.equal(one.fullName, '<img src=x onerror=alert(1)>');
-  assert.equal(provider.getPatient(one.id).fullName, '<img src=x onerror=alert(1)>');
+  assert.equal((await adapter.getPatient(one.id)).fullName, '<img src=x onerror=alert(1)>');
 });
 
 test('patient filter is accent/case insensitive and supports status filtering', async () => {
