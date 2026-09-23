@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 async function openAgenda(page) {
   await page.goto('/');
   await page.locator('[data-nav="agenda"]').click();
-  await expect(page.getByRole('heading', { name: 'Agenda', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Agenda', exact: true })).toBeVisible();
 }
 
 test.describe('UI-8 agenda', () => {
@@ -38,7 +38,7 @@ test.describe('UI-8 agenda', () => {
     const menu = page.locator('[data-mobile-nav-toggle]');
     await menu.click();
     await page.locator('[data-nav="agenda"]').click();
-    await expect(page.getByRole('heading', { name: 'Agenda', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Agenda', exact: true })).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     expect(overflow).toBe(false);
   });
