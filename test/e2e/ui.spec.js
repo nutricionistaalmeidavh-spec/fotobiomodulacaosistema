@@ -12,7 +12,7 @@ async function login(page) {
   await expect(page.locator('body')).toHaveAttribute('data-app-ready', 'true');
 }
 
-test.describe.serial('Fotobiomodulação F0–F3 regressão sob composição F7', () => {
+test.describe.serial('Fotobiomodulação F0–F3 regressão sob composição atual', () => {
   test('faz setup local no primeiro acesso, sem provedor externo', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('[data-auth-setup]')).toBeVisible();
@@ -22,7 +22,7 @@ test.describe.serial('Fotobiomodulação F0–F3 regressão sob composição F7'
     await page.locator('[data-setup-submit]').click();
     await expect(page.locator('body')).toHaveAttribute('data-app-ready', 'true');
     await expect(page.locator('[data-auth-user]')).toContainText('Profissional E2E');
-    await expect(page.getByText('F7 concluída', { exact: true }).first()).toBeVisible();
+    await expect(page.locator('[data-phase-badge]')).toHaveText(/F(?:8|9|10) concluída/);
   });
 
   test('faz logout e login novamente com a conta local', async ({ page }) => {
