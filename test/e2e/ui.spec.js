@@ -87,7 +87,7 @@ test.describe.serial('Fotobiomodulação F3 UI', () => {
 
     await page.locator('[data-nav="patients"]').click();
     await page.locator('[data-patient-row]').filter({ hasText: 'Paciente E2E' }).getByRole('button', { name: 'Abrir' }).click();
-    await expect(page.getByText('Sessão PBM', { exact: false })).toBeVisible();
+    await expect(page.getByText('Sessão PBM', { exact: false }).first()).toBeVisible();
     await expect(page.getByText(/Aplicado: 5 J/i)).toBeVisible();
   });
 
@@ -101,7 +101,7 @@ test.describe.serial('Fotobiomodulação F3 UI', () => {
     await page.locator('[data-nav="patients"]').click();
     await page.locator('[data-patient-row]').filter({ hasText: 'Paciente E2E' }).getByRole('button', { name: 'Abrir' }).click();
     await expect(page.getByText('Dor cervical E2E', { exact: false }).first()).toBeVisible();
-    await expect(page.getByText('Sessão PBM', { exact: false })).toBeVisible();
+    await expect(page.getByText('Sessão PBM', { exact: false }).first()).toBeVisible();
     await expect(page.getByText('Atendimento finalizado', { exact: true }).first()).toBeVisible();
   });
 
