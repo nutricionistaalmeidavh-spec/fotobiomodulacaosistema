@@ -52,6 +52,8 @@ test.describe('F0 regressions after UI foundation refactor', () => {
     await expect(page.getByText('Protocolo auditável E2E', { exact: true }).first()).toBeVisible();
     await openRoute(page, 'audit');
     await expect(page.getByText('Cadeia íntegra', { exact: true })).toBeVisible();
-    await expect(page.getByText('protocol.created', { exact: true }).first()).toBeVisible();
+    const event = page.locator('[data-audit-event]').filter({ hasText: 'protocol.created' }).first();
+    await expect(event).toBeVisible();
+    await expect(event).toContainText('protocol.created');
   });
 });
