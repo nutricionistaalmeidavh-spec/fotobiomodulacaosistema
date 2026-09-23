@@ -44,7 +44,15 @@ test('F6 links evidence to an exact immutable protocol version without mutating 
   const protocol = service.createProtocol({
     title: 'Protocolo científico F6',
     changeSummary: 'Referência original',
-    parameters: { wavelengthNm: 808, powerMw: 100, timeSeconds: 40, areaCm2: 0.5 }
+    parameters: {
+      wavelengthNm: 808,
+      powerMw: 100,
+      timeS: 40,
+      areaCm2: 0.5,
+      mode: 'continuous',
+      points: 4,
+      technique: 'contact'
+    }
   });
   const version = service.listProtocolVersions(protocol.id)[0];
   const before = service.getProtocolVersion(version.id);
