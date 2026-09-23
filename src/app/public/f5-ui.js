@@ -242,7 +242,7 @@ function mountEvolution() {
         <label>Grupo longitudinal<input name="f5-outcome-group" placeholder="Ex.: cervical-setembro"></label>
         <label>Observação<textarea name="f5-outcome-narrative" rows="3" placeholder="Contexto clínico do registro"></textarea></label>
         <button type="button" data-record-outcome-f5>Registrar evolução</button>
-        <p class="workspace-note" data-f5-feedback></p>
+        <p class="f5-feedback" data-f5-feedback></p>
       </div>
 
       <div class="f5-panel">
