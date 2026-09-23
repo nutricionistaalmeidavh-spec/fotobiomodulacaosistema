@@ -1,8 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { createF3Service } from './f3-service.js';
 import { storeClinicalImageFile } from '../core/clinical-storage.js';
+import { generateEncounterPdf } from '../core/pdf.js';
+import { createBackup, verifyBackup } from '../core/backup.js';
 import { buildAuditEvent } from '../core/audit.js';
 import { SEED_IDS } from './seed.js';
 
@@ -65,6 +67,23 @@ function mapOutcome(row) {
     metricUnit: row.metric_unit,
     narrative: row.narrative,
     measuredAt: row.measured_at
+  };
+}
+
+function mapDocument(row) {
+  return {
+    id: row.id,
+    patientId: row.patient_id,
+    encounterId: row.encounter_id,
+    documentType: row.document_type,
+    status: row.status,
+    title: row.title,
+    storagePath: row.storage_path,
+    content: parseJson(row.content_json, {}),
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+    finalizedAt: row.finalized_at,
+    sha256: row.sha256
   };
 }
 
@@ -269,20 +288,147 @@ export function createF4Service(db, {
         .all(patientId).map(mapOutcome);
     },
 
+    listDocuments(patientId) {
+      assertPatient(db, patientId);
+      return db.prepare('SELECT * FROM documents WHERE patient_id = ? ORDER BY created_at DESC, rowid DESC')
+        .all(patientId).map(mapDocument);
+    },
+
+    finalizeEncounterPdf(encounterId, actorId = SEED_IDS.professional) {
+      const encounter = db.prepare(`
+        SELECT e.*, p.full_name AS patient_name, p.id AS patient_id_resolved
+        FROM encounters e
+        JOIN patients p ON p.id = e.patient_id
+        WHERE e.id = ?
+      `).get(encounterId);
+      if (!encounter) throw new Error('Encounter not found');
+      const assessment = encounter.assessment_id
+        ? db.prepare('SELECT * FROM assessments WHERE id = ?').get(encounter.assessment_id)
+        : null;
+      const sessions = db.prepare(`
+        SELECT ts.*, p.title AS protocol_title, pv.version_number,
+               eq.manufacturer AS equipment_manufacturer, eq.model AS equipment_model,
+               a.name AS applicator_name
+        FROM treatment_sessions ts
+        LEFT JOIN protocols p ON p.id = ts.protocol_id
+        LEFT JOIN protocol_versions pv ON pv.id = ts.protocol_version_id
+        LEFT JOIN equipment eq ON eq.id = ts.equipment_id
+        LEFT JOIN applicators a ON a.id = ts.applicator_id
+        WHERE ts.encounter_id = ?
+        ORDER BY ts.started_at, ts.rowid
+      `).all(encounterId).map((row) => ({
+        ...row,
+        protocolTitle: row.protocol_title,
+        protocolVersionNumber: row.version_number,
+        equipmentManufacturer: row.equipment_manufacturer,
+        equipmentModel: row.equipment_model,
+        applicatorName: row.applicator_name,
+        plannedParameters: parseJson(row.planned_parameters_json, {}),
+        appliedParameters: parseJson(row.applied_parameters_json, {}),
+        professionalAdjustmentReason: row.professional_adjustment_reason
+      }));
+      const applicationPoints = db.prepare(`
+        SELECT ap.*
+        FROM application_points ap
+        JOIN treatment_sessions ts ON ts.id = ap.treatment_session_id
+        WHERE ts.encounter_id = ?
+        ORDER BY ts.started_at, ap.sequence_number, ap.rowid
+      `).all(encounterId).map((row) => ({
+        ...row,
+        sequenceNumber: row.sequence_number,
+        bodyRegion: row.body_region,
+        anatomicalLabel: row.anatomical_label,
+        parameters: parseJson(row.parameters_json, {})
+      }));
+      const outcomes = db.prepare(`
+        SELECT * FROM outcomes
+        WHERE patient_id = ? AND (
+          encounter_id = ? OR treatment_session_id IN (SELECT id FROM treatment_sessions WHERE encounter_id = ?)
+        )
+        ORDER BY measured_at, rowid
+      `).all(encounter.patient_id, encounterId, encounterId).map(mapOutcome);
+
+      const pdf = generateEncounterPdf({
+        patient: { id: encounter.patient_id, fullName: encounter.patient_name },
+        encounter: {
+          id: encounter.id,
+          startedAt: encounter.started_at,
+          finalizedAt: encounter.finalized_at,
+          status: encounter.status,
+          notes: encounter.notes
+        },
+        assessment: assessment ? {
+          chiefComplaint: assessment.chief_complaint,
+          history: assessment.history,
+          painScore: assessment.pain_score
+        } : null,
+        sessions,
+        applicationPoints,
+        outcomes
+      });
+      const id = randomUUID();
+      const directory = path.join(roots.storageRoot, 'documents', encounter.patient_id);
+      fs.mkdirSync(directory, { recursive: true });
+      const storagePath = path.join(directory, `${id}.pdf`);
+      fs.writeFileSync(storagePath, pdf, { flag: 'wx' });
+      const sha256 = createHash('sha256').update(pdf).digest('hex');
+      const now = new Date().toISOString();
+      try {
+        db.exec('BEGIN IMMEDIATE;');
+        db.prepare(`
+          INSERT INTO documents(
+            id, patient_id, encounter_id, document_type, status, title, storage_path,
+            content_json, created_by, created_at, finalized_at, sha256
+          ) VALUES (?, ?, ?, 'encounter_pdf', 'finalized', ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          id, encounter.patient_id, encounterId, `Registro do atendimento ${encounterId}`, storagePath,
+          JSON.stringify({ patientId: encounter.patient_id, encounterId, format: 'pdf' }),
+          actorId, now, now, sha256
+        );
+        appendAudit(db, base, {
+          action: 'document.finalized', entityType: 'document', entityId: id, actorId,
+          payload: { patientId: encounter.patient_id, encounterId, sha256 }
+        });
+        db.exec('COMMIT;');
+      } catch (error) {
+        try { db.exec('ROLLBACK;'); } catch {}
+        fs.rmSync(storagePath, { force: true });
+        throw error;
+      }
+      return mapDocument(db.prepare('SELECT * FROM documents WHERE id = ?').get(id));
+    },
+
+    createLocalBackup(actorId = SEED_IDS.professional) {
+      const backup = createBackup({ db, assetRoot: roots.storageRoot, destinationRoot: roots.backupRoot });
+      const verification = verifyBackup(backup.backupPath);
+      if (!verification.valid) {
+        fs.rmSync(backup.backupPath, { recursive: true, force: true });
+        throw new Error(`Backup verification failed: ${verification.errors.join('; ')}`);
+      }
+      appendAudit(db, base, {
+        action: 'backup.created', entityType: 'backup', entityId: path.basename(backup.backupPath), actorId,
+        payload: { backupPath: backup.backupPath, fileCount: backup.manifest.files.length }
+      });
+      return { ...backup, verification };
+    },
+
     getPatientWorkspace(patientId) {
       const workspace = base.getPatientWorkspace(patientId);
       const consents = service.listConsents(patientId);
       const media = service.listClinicalMedia(patientId);
       const basicOutcomes = service.listBasicOutcomes(patientId);
+      const documents = service.listDocuments(patientId);
       const extraTimeline = [
         ...consents.map((item) => ({ type: 'consent', id: item.id, at: item.createdAt, ...item })),
-        ...media.map((item) => ({ type: 'clinical_media', id: item.id, at: item.capturedAt || item.createdAt, ...item }))
+        ...media.map((item) => ({ type: 'clinical_media', id: item.id, at: item.capturedAt || item.createdAt, ...item })),
+        ...documents.map((item) => ({ type: 'document', id: item.id, at: item.finalizedAt || item.createdAt, ...item }))
       ];
       return {
         ...workspace,
         consents,
         media,
         basicOutcomes,
+        documents,
         timeline: [...workspace.timeline, ...extraTimeline]
           .sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))
       };
