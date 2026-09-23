@@ -23,14 +23,12 @@ test.describe('UI foundation and operational dashboard', () => {
     await expect(page.locator('[data-nav="patients"]')).toHaveAttribute('aria-current', 'page');
   });
 
-  test('remaining planned primary routes render explicit nonblank boundaries', async ({ page }) => {
+  test('remaining planned primary route renders an explicit nonblank boundary', async ({ page }) => {
     await page.goto('/');
-    for (const [route, title] of [['reports', 'Relatórios'], ['settings', 'Configurações']]) {
-      await page.locator(`[data-nav="${route}"]`).click();
-      await expect(page.getByRole('heading', { name: title, exact: true, level: 1 })).toBeVisible();
-      await expect(page.locator(`[data-planned-route="${route}"]`)).toContainText(/sem simular persistência/i);
-      await expect(page.locator(`[data-nav="${route}"]`)).toHaveAttribute('aria-current', 'page');
-    }
+    await page.locator('[data-nav="settings"]').click();
+    await expect(page.getByRole('heading', { name: 'Configurações', exact: true, level: 1 })).toBeVisible();
+    await expect(page.locator('[data-planned-route="settings"]')).toContainText(/sem simular persistência/i);
+    await expect(page.locator('[data-nav="settings"]')).toHaveAttribute('aria-current', 'page');
   });
 
   test('desktop shell has no global horizontal overflow', async ({ page }) => {
