@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
 
+async function expectNoGlobalOverflow(page) {
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+}
+
 test.describe('UI foundation and operational dashboard', () => {
   test('loads without runtime errors and exposes operational metrics and recent activity', async ({ page }) => {
     const errors = [];
@@ -31,14 +36,35 @@ test.describe('UI foundation and operational dashboard', () => {
     await expect(page.locator('[data-nav="settings"]')).toHaveAttribute('aria-current', 'page');
   });
 
-  test('desktop shell has no global horizontal overflow', async ({ page }) => {
+  test('desktop traverses implemented primary and F0 routes without overflow', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/');
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    expect(overflow).toBeLessThanOrEqual(1);
+    for (const route of ['dashboard', 'patients', 'agenda', 'protocols', 'equipment', 'reports']) {
+      await page.locator(`[data-nav="${route}"]`).click();
+      await expect(page.locator(`[data-nav="${route}"]`)).toHaveAttribute('aria-current', 'page');
+      await expect(page.locator('#view')).not.toBeEmpty();
+      await expectNoGlobalOverflow(page);
+    }
+    for (const route of ['sessions', 'audit']) {
+      await page.locator(`[data-secondary-nav="${route}"]`).click();
+      await expect(page.locator(`[data-secondary-nav="${route}"]`)).toHaveAttribute('aria-current', 'page');
+      await expect(page.locator('#view')).not.toBeEmpty();
+      await expectNoGlobalOverflow(page);
+    }
   });
 
-  test('mobile navigation is keyboard reachable, closes after selection and has no shell overflow', async ({ page }) => {
+  test('patient workspace exposes Evolution and Photos in the final route traversal', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('[data-nav="patients"]').click();
+    await page.getByRole('button', { name: 'Carlos Menezes', exact: true }).click();
+    for (const tab of ['Evolução', 'Fotos']) {
+      await page.getByRole('tab', { name: tab, exact: true }).click();
+      await expect(page.getByRole('tabpanel')).not.toBeEmpty();
+      await expectNoGlobalOverflow(page);
+    }
+  });
+
+  test('mobile navigation traverses all primary routes by keyboard-safe menu without overflow', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
     const toggle = page.getByRole('button', { name: /Menu/ });
@@ -47,12 +73,15 @@ test.describe('UI foundation and operational dashboard', () => {
     await expect(toggle).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    await expect(page.locator('[data-nav="agenda"]')).toBeVisible();
-    await page.locator('[data-nav="agenda"]').click();
-    await expect(page.getByRole('heading', { name: 'Agenda', exact: true, level: 1 })).toBeVisible();
-    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    await expect(page.getByText(/somente local.*não persistido/i).first()).toBeVisible();
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    expect(overflow).toBeLessThanOrEqual(1);
+
+    for (const route of ['dashboard', 'patients', 'agenda', 'protocols', 'equipment', 'reports', 'settings']) {
+      if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
+      await expect(page.locator(`[data-nav="${route}"]`)).toBeVisible();
+      await page.locator(`[data-nav="${route}"]`).click();
+      await expect(page.locator(`[data-nav="${route}"]`)).toHaveAttribute('aria-current', 'page');
+      await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      await expect(page.locator('#view')).not.toBeEmpty();
+      await expectNoGlobalOverflow(page);
+    }
   });
 });
