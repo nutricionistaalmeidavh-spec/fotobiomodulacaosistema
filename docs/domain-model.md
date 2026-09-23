@@ -1,12 +1,12 @@
-# Modelo de domínio — F0 a F5
+# Modelo de domínio — F0 a F7
 
 ## Núcleo clínico
 
 ### Professional
-Profissional responsável por avaliações, sessões, consentimentos, documentos, outcomes e eventos auditáveis.
+Profissional responsável por avaliações, sessões, consentimentos, documentos, outcomes, vínculos de evidência e eventos auditáveis.
 
 ### Patient
-Raiz do histórico clínico. Possui dados cadastrais, estado ativo/arquivado e relacionamentos com avaliações, atendimentos, sessões, mídia e evolução.
+Raiz do histórico clínico. Possui dados cadastrais, estado ativo/arquivado e relacionamentos com avaliações, atendimentos, sessões, mídia, evolução e pontos anatômicos aplicados.
 
 ### Assessment
 Avaliação/anamnese vinculada ao paciente e ao atendimento. Guarda queixa principal, histórico, medicações, alergias, precauções, escore de dor e notas clínicas.
@@ -49,7 +49,17 @@ Quando a potência é variável, a escolha da potência pertence ao profissional
 Registro da aplicação realizada. Mantém protocolo/versão exatos e snapshots `planned_parameters_json` e `applied_parameters_json` separados. Divergência clínica relevante exige justificativa profissional.
 
 ### ApplicationPoint
-Ponto/local individual tratado durante uma sessão. Registra sequência, região/anatomia textual e parâmetros da aplicação. O histórico é imutável.
+Ponto/local individual tratado durante uma sessão. Registra sequência, região/anatomia textual, coordenadas estruturadas opcionais e parâmetros da aplicação. O histórico é imutável.
+
+Na F7, `coordinates_json` recebe um payload anatômico versionado:
+
+- `schemaVersion: 1`;
+- `regionId` canônico;
+- `view` (`anterior` ou `posterior`);
+- `laterality`;
+- `x` e `y` normalizados entre 0 e 1.
+
+O mapa corporal não cria uma entidade terapêutica separada: ele confirma a localização de um `ApplicationPoint` real de uma sessão real.
 
 ## Governança e MVP clínico
 
@@ -94,16 +104,57 @@ Tipos canônicos implementados:
 `baseline_group` permite agrupar registros comparáveis de uma mesma métrica. O serviço F5 gera a série ordenada, primeiro valor, último valor e variação absoluta. Esses resultados são descritivos e não representam inferência causal.
 
 ### Patient timeline
-A timeline F5 agrega eventos clínicos persistidos, incluindo avaliações/atendimentos, sessões PBM, consentimentos, mídia, documentos e outcomes, mantendo ordenação temporal e identidade dos registros.
+A timeline agrega eventos clínicos persistidos, incluindo avaliações/atendimentos, sessões PBM, consentimentos, mídia, documentos, outcomes e pontos de aplicação, mantendo ordenação temporal e identidade dos registros.
+
+## Biblioteca científica F6
+
+### EvidenceSource
+Referência científica armazenada localmente. Pode registrar:
+
+- título;
+- autores;
+- ano de publicação;
+- fonte/periódico;
+- tipo de estudo;
+- DOI e URL;
+- resumo;
+- condições clínicas estruturadas;
+- regiões corporais estruturadas;
+- comprimentos de onda relacionados.
+
+A entidade é documental. Sua presença não altera parâmetros clínicos nem representa recomendação de tratamento.
+
+### ProtocolEvidenceLink
+Vínculo explícito entre uma `EvidenceSource` e uma `ProtocolVersion` exata.
+
+Relações suportadas:
+
+- `supports` — referência documentada como suporte;
+- `context` — referência contextual;
+- `contradicts` — referência documentada como evidência divergente/contrária.
+
+O vínculo possui nota opcional, é auditável e nunca modifica a `ProtocolVersion` relacionada.
+
+## Mapa corporal F7
+
+### BodyMapRegion
+Entrada de catálogo anatômico determinístico mantida no domínio. Define identificador canônico, rótulo, vistas suportadas e centros normalizados para representação SVG.
+
+Não contém dose, energia, protocolo recomendado nem regra de decisão terapêutica.
+
+### BodyMapPoint
+Não é uma tabela nova. É a interpretação F7 de um `ApplicationPoint` que contém coordenadas anatômicas estruturadas e foi confirmado pelo profissional em uma sessão PBM existente.
 
 ## Auditoria
 
 ### AuditEvent
 Evento append-only com `prev_hash` e `event_hash` para cadeia SHA-256 verificável. Ações clínicas relevantes registram profissional, entidade, payload e horário.
 
+F6/F7 acrescentam eventos como criação de evidência, vínculo de evidência a versão de protocolo e registro de ponto anatômico.
+
 ## Invariantes centrais
 
-1. ProtocolVersion é imutável.
+1. `ProtocolVersion` é imutável.
 2. Sessão aponta para a versão exata do protocolo utilizada.
 3. Planejado e aplicado são snapshots separados.
 4. Alteração entre planejado/aplicado exige justificativa.
@@ -115,3 +166,7 @@ Evento append-only com `prev_hash` e `event_hash` para cadeia SHA-256 verificáv
 10. Auditoria é append-only e verificável.
 11. Outcome registra profissional e tempo da medida.
 12. Comparação longitudinal não diagnostica e não atribui causalidade ao tratamento.
+13. Evidência científica é referência documental e não altera silenciosamente parâmetros de protocolo.
+14. Um vínculo de evidência aponta para uma versão exata, preservando a versão científica/profissional original.
+15. O mapa corporal registra apenas localização confirmada pelo profissional; não sugere ponto, protocolo, dose ou conduta.
+16. Coordenadas anatômicas F7 pertencem a uma sessão real por meio de `ApplicationPoint` e não substituem o registro clínico da aplicação.
