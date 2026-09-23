@@ -43,14 +43,6 @@ export function createF0Views({ state, gateway, showMessage, rerenderFresh }) {
     return renderTreatmentWorkflow({ protocols: state.protocols, sessions: state.sessions });
   }
 
-  function audit() {
-    return `<div class="page-stack"><div class="page-heading"><div><span class="eyebrow">AUDITORIA</span><h1>Trilha clínica append-only</h1><p>Eventos críticos permanecem encadeados e verificáveis.</p></div><span class="status-badge ${state.audit.valid ? 'status-success' : 'status-danger'}">${state.audit.valid ? 'Cadeia íntegra' : 'Integridade comprometida'}</span></div>
-      <section class="card"><div class="section-head"><div><h2>Auditoria append-only</h2><p>Eventos são encadeados por SHA-256. UPDATE e DELETE permanecem bloqueados no banco.</p></div></div>
-        <div class="audit-list">${state.audit.events.length ? state.audit.events.slice().reverse().map((event) => `<article class="audit-item"><header><strong>${escapeHtml(event.action)}</strong><span class="muted">${escapeHtml(event.createdAt)}</span></header><div>${escapeHtml(event.entityType)} · <span class="code">${escapeHtml(event.entityId)}</span></div><div class="code">hash ${escapeHtml(event.eventHash)}</div></article>`).join('') : '<p class="muted">Ações auditáveis aparecerão aqui.</p>'}</div>
-      </section>
-    </div>`;
-  }
-
   function bindActions(root = document) {
     bindDosimetryCalculator(root);
     bindTreatmentWorkflow(root);
@@ -97,5 +89,5 @@ export function createF0Views({ state, gateway, showMessage, rerenderFresh }) {
     });
   }
 
-  return { templates: { protocols, equipment, sessions, audit }, bindActions };
+  return { templates: { protocols, equipment, sessions }, bindActions };
 }
