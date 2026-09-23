@@ -74,6 +74,10 @@ function assertClinicalLinks(db, patientId, encounterId, treatmentSessionId) {
   }
 }
 
+function timelineKey(item) {
+  return `${item.type || 'event'}:${item.id || ''}`;
+}
+
 export function createF5Service(db, options = {}) {
   const base = createF4MvpService(db, options);
 
@@ -202,14 +206,26 @@ export function createF5Service(db, options = {}) {
         at: item.measuredAt,
         ...item
       }));
+      const uniqueTimeline = new Map();
+      for (const item of [...workspace.timeline.filter((item) => item.type !== 'outcome'), ...outcomeTimeline]) {
+        uniqueTimeline.set(timelineKey(item), item);
+      }
 
       return {
         ...workspace,
         outcomes,
         basicOutcomes: outcomes,
-        timeline: [...workspace.timeline.filter((item) => item.type !== 'outcome'), ...outcomeTimeline]
+        timeline: [...uniqueTimeline.values()]
           .sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))
       };
+    },
+
+    getPatientTimeline(patientId, { order = 'asc' } = {}) {
+      const workspace = service.getPatientWorkspace(patientId);
+      const direction = String(order).toLowerCase() === 'desc' ? 'desc' : 'asc';
+      return [...workspace.timeline].sort((a, b) => direction === 'asc'
+        ? String(a.at || '').localeCompare(String(b.at || ''))
+        : String(b.at || '').localeCompare(String(a.at || '')));
     }
   };
 
