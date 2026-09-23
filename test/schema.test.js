@@ -37,18 +37,18 @@ test('audit events are append-only', () => {
   assert.throws(() => db.prepare("UPDATE audit_events SET action='update' WHERE id='a1'").run(), /append-only/i);
 });
 
-test('persistent database reopens with F0, F1 and F2 migrations exactly once', async () => {
+test('persistent database reopens with F0 through F3 migrations exactly once', async () => {
   const { mkdtempSync, rmSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
-  const dir = mkdtempSync(join(tmpdir(), 'pbm-f2-'));
+  const dir = mkdtempSync(join(tmpdir(), 'pbm-f3-'));
   const file = join(dir, 'clinical.sqlite');
   try {
     const first = openDatabase(file);
     first.close();
     const second = openDatabase(file);
     const migrations = second.prepare('SELECT version FROM schema_migrations ORDER BY version').all();
-    assert.deepEqual(migrations.map((row) => row.version), ['0001_f0', '0002_f1', '0003_f2']);
+    assert.deepEqual(migrations.map((row) => row.version), ['0001_f0', '0002_f1', '0003_f2', '0004_f3']);
     second.close();
   } finally {
     rmSync(dir, { recursive: true, force: true });
