@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDatabase } from '../db/database.js';
-import { createF3Service } from './f3-service.js';
+import { createF4Service } from './f4-service.js';
 import { createAuthService } from './auth-service.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -20,11 +20,14 @@ function sendJson(response, status, payload, headers = {}) {
 
 async function readJson(request) {
   const chunks = [];
-  for await (const chunk of request) chunks.push(chunk);
+  let size = 0;
+  for await (const chunk of request) {
+    size += chunk.length;
+    if (size > 8 * 1024 * 1024) throw new Error('Request body is too large');
+    chunks.push(chunk);
+  }
   if (!chunks.length) return {};
-  const raw = Buffer.concat(chunks).toString('utf8');
-  if (raw.length > 128 * 1024) throw new Error('Request body is too large');
-  return JSON.parse(raw);
+  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
 function parseCookies(request) {
@@ -70,10 +73,15 @@ function protocolFilters(url) {
   return filters;
 }
 
-export async function createAppServer({ dbFile = path.resolve('data/fotobiomodulacao.sqlite'), port = 8788 } = {}) {
+export async function createAppServer({
+  dbFile = path.resolve('data/fotobiomodulacao.sqlite'),
+  storageRoot = path.resolve('data/clinical-assets'),
+  backupRoot = path.resolve('data/backups'),
+  port = 8788
+} = {}) {
   if (dbFile !== ':memory:') fs.mkdirSync(path.dirname(path.resolve(dbFile)), { recursive: true });
   const db = openDatabase(dbFile);
-  const service = createF3Service(db);
+  const service = createF4Service(db, { storageRoot, backupRoot });
   const auth = createAuthService(db);
   service.ensureSeedData();
 
@@ -149,6 +157,42 @@ export async function createAppServer({ dbFile = path.resolve('data/fotobiomodul
         }
         if (request.method === 'GET' && url.pathname === '/api/encounters/open') {
           return sendJson(response, 200, { encounters: service.listOpenEncounters() });
+        }
+
+        const patientConsentsMatch = url.pathname.match(/^\/api\/patients\/([^/]+)\/consents$/);
+        if (patientConsentsMatch && request.method === 'GET') {
+          return sendJson(response, 200, { consents: service.listConsents(decodeURIComponent(patientConsentsMatch[1])) });
+        }
+        if (patientConsentsMatch && request.method === 'POST') {
+          const patientId = decodeURIComponent(patientConsentsMatch[1]);
+          const consent = service.acceptConsent({ patientId, ...(await readJson(request)) }, actorId);
+          return sendJson(response, 201, { consent });
+        }
+        const revokeConsentMatch = url.pathname.match(/^\/api\/consents\/([^/]+)\/revoke$/);
+        if (revokeConsentMatch && request.method === 'POST') {
+          const body = await readJson(request);
+          const consent = service.revokeConsent(decodeURIComponent(revokeConsentMatch[1]), body.reason, actorId);
+          return sendJson(response, 201, { consent });
+        }
+
+        const patientMediaMatch = url.pathname.match(/^\/api\/patients\/([^/]+)\/media$/);
+        if (patientMediaMatch && request.method === 'GET') {
+          return sendJson(response, 200, { media: service.listClinicalMedia(decodeURIComponent(patientMediaMatch[1])) });
+        }
+        if (patientMediaMatch && request.method === 'POST') {
+          const patientId = decodeURIComponent(patientMediaMatch[1]);
+          const media = service.storeClinicalImage({ patientId, ...(await readJson(request)) }, actorId);
+          return sendJson(response, 201, { media });
+        }
+
+        const patientBasicOutcomesMatch = url.pathname.match(/^\/api\/patients\/([^/]+)\/basic-outcomes$/);
+        if (patientBasicOutcomesMatch && request.method === 'GET') {
+          return sendJson(response, 200, { outcomes: service.listBasicOutcomes(decodeURIComponent(patientBasicOutcomesMatch[1])) });
+        }
+        if (patientBasicOutcomesMatch && request.method === 'POST') {
+          const patientId = decodeURIComponent(patientBasicOutcomesMatch[1]);
+          const outcome = service.recordBasicOutcome({ patientId, ...(await readJson(request)) }, actorId);
+          return sendJson(response, 201, { outcome });
         }
 
         if (request.method === 'GET' && url.pathname === '/api/equipment') {
