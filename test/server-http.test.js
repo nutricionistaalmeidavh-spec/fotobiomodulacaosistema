@@ -9,7 +9,7 @@ function cookieFrom(response) {
   return (response.headers.get('set-cookie') || '').split(';')[0];
 }
 
-test('HTTP app exposes authenticated F5 status, protocol/session writes and a valid audit chain', async () => {
+test('HTTP app preserves protocol/session writes and audit under the F7 composition', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pbm-http-'));
   const app = await createAppServer({ dbFile: path.join(dir, 'app.sqlite'), port: 0 });
   try {
@@ -24,8 +24,8 @@ test('HTTP app exposes authenticated F5 status, protocol/session writes and a va
     const statusResponse = await fetch(`${app.url}/api/status`, { headers: { cookie } });
     assert.equal(statusResponse.status, 200);
     const status = await statusResponse.json();
-    assert.equal(status.phase, 'F5');
-    assert.ok(status.tableCount >= 21);
+    assert.equal(status.phase, 'F7');
+    assert.ok(status.tableCount >= 23);
 
     const created = await fetch(`${app.url}/api/protocols`, {
       method: 'POST', headers,
