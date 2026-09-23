@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDatabase } from '../db/database.js';
-import { createF2Service } from './f2-service.js';
+import { createF3Service } from './f3-service.js';
 import { createAuthService } from './auth-service.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -73,7 +73,7 @@ function protocolFilters(url) {
 export async function createAppServer({ dbFile = path.resolve('data/fotobiomodulacao.sqlite'), port = 8788 } = {}) {
   if (dbFile !== ':memory:') fs.mkdirSync(path.dirname(path.resolve(dbFile)), { recursive: true });
   const db = openDatabase(dbFile);
-  const service = createF2Service(db);
+  const service = createF3Service(db);
   const auth = createAuthService(db);
   service.ensureSeedData();
 
@@ -150,7 +150,25 @@ export async function createAppServer({ dbFile = path.resolve('data/fotobiomodul
         if (request.method === 'GET' && url.pathname === '/api/encounters/open') {
           return sendJson(response, 200, { encounters: service.listOpenEncounters() });
         }
-        if (request.method === 'GET' && url.pathname === '/api/equipment') return sendJson(response, 200, { equipment: service.listEquipment() });
+
+        if (request.method === 'GET' && url.pathname === '/api/equipment') {
+          return sendJson(response, 200, { equipment: service.listEquipmentDetailed() });
+        }
+        if (request.method === 'POST' && url.pathname === '/api/equipment') {
+          const equipment = service.createEquipment(await readJson(request), actorId);
+          return sendJson(response, 201, { equipment });
+        }
+        const equipmentMatch = url.pathname.match(/^\/api\/equipment\/([^/]+)$/);
+        if (request.method === 'PATCH' && equipmentMatch) {
+          const equipment = service.updateEquipment(decodeURIComponent(equipmentMatch[1]), await readJson(request), actorId);
+          return sendJson(response, 200, { equipment });
+        }
+        const applicatorMatch = url.pathname.match(/^\/api\/equipment\/([^/]+)\/applicators$/);
+        if (request.method === 'POST' && applicatorMatch) {
+          const applicator = service.createApplicator(decodeURIComponent(applicatorMatch[1]), await readJson(request), actorId);
+          return sendJson(response, 201, { applicator });
+        }
+
         if (request.method === 'GET' && url.pathname === '/api/protocols') {
           const filters = protocolFilters(url);
           const source = Object.keys(filters).length ? service.searchProtocols(filters) : service.listProtocols();
@@ -167,6 +185,15 @@ export async function createAppServer({ dbFile = path.resolve('data/fotobiomodul
           const version = service.createProtocolVersion(decodeURIComponent(versionMatch[1]), await readJson(request), actorId);
           return sendJson(response, 201, { version });
         }
+        const adaptMatch = url.pathname.match(/^\/api\/protocol-versions\/([^/]+)\/adapt$/);
+        if (request.method === 'POST' && adaptMatch) {
+          const body = await readJson(request);
+          const adaptation = service.adaptProtocolVersion(
+            decodeURIComponent(adaptMatch[1]), body.applicatorId, body.selectedPowerMw ?? null, actorId
+          );
+          return sendJson(response, 200, { adaptation });
+        }
+
         if (request.method === 'GET' && url.pathname === '/api/sessions') return sendJson(response, 200, { sessions: service.listSessions() });
         if (request.method === 'POST' && url.pathname === '/api/sessions') {
           const session = service.createTreatmentSession(await readJson(request), actorId);
