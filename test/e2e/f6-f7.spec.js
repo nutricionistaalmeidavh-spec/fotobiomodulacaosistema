@@ -50,25 +50,27 @@ test('F6 vincula evidência científica e F7 registra ponto anatômico sem recom
 
   await page.locator('[data-nav="patients"]').click();
   await page.locator('[data-patient-row]').filter({ hasText: 'Paciente MVP F4' }).getByRole('button', { name: 'Abrir' }).click();
-  await expect(page.locator('[data-f7-body-map]')).toBeVisible();
-  await expect(page.locator('[name="f7-session"] option')).not.toHaveCount(0);
+  const bodyMap = page.locator('[data-f7-body-map]:visible').last();
+  await expect(bodyMap).toBeVisible();
+  await expect(bodyMap.locator('[name="f7-session"] option')).not.toHaveCount(0);
 
-  await page.locator('[name="f7-view"]').selectOption('posterior');
-  await page.locator('[name="f7-laterality"]').selectOption('midline');
-  await page.locator('[data-body-region-id="cervical"]').click();
-  await expect(page.locator('[data-f7-marker]')).toBeVisible();
-  await page.locator('[name="f7-label"]').fill('C4-C5 E2E');
-  await page.locator('[data-record-body-map-f7]').click();
-  await expect(page.locator('[data-f7-feedback]')).toContainText('Ponto anatômico registrado na sessão');
-  await expect(page.locator('[data-f7-point-item]').filter({ hasText: 'C4-C5 E2E' })).toBeVisible();
+  await bodyMap.locator('[name="f7-view"]').selectOption('posterior');
+  await bodyMap.locator('[name="f7-laterality"]').selectOption('midline');
+  await bodyMap.locator('[data-body-region-id="cervical"]').click();
+  await expect(bodyMap.locator('[data-f7-marker]')).toBeVisible();
+  await bodyMap.locator('[name="f7-label"]').fill('C4-C5 E2E');
+  await bodyMap.locator('[data-record-body-map-f7]').click();
+  await expect(bodyMap.locator('[data-f7-feedback]')).toContainText('Ponto anatômico registrado na sessão');
+  await expect(bodyMap.locator('[data-f7-point-item]').filter({ hasText: 'C4-C5 E2E' })).toBeVisible();
 
-  const mapText = await page.locator('[data-f7-body-map]').innerText();
+  const mapText = await bodyMap.innerText();
   expect(mapText).toMatch(/não sugere dose, protocolo ou conduta/i);
 
   await page.reload();
   await page.locator('[data-nav="patients"]').click();
   await page.locator('[data-patient-row]').filter({ hasText: 'Paciente MVP F4' }).getByRole('button', { name: 'Abrir' }).click();
-  await expect(page.locator('[data-f7-point-item]').filter({ hasText: 'C4-C5 E2E' })).toBeVisible();
+  const reloadedBodyMap = page.locator('[data-f7-body-map]:visible').last();
+  await expect(reloadedBodyMap.locator('[data-f7-point-item]').filter({ hasText: 'C4-C5 E2E' })).toBeVisible();
 
   await page.locator('[data-nav="audit"]').click();
   for (const action of ['evidence.created', 'protocol_evidence.linked', 'body_map_point.recorded']) {
