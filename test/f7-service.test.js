@@ -15,7 +15,15 @@ test('F7 records a confirmed anatomical body-map point on a real PBM session', (
   const protocol = service.createProtocol({
     title: 'Protocolo F7',
     changeSummary: 'Versão inicial',
-    parameters: { wavelengthNm: 808, powerMw: 100, timeSeconds: 40, areaCm2: 0.5 }
+    parameters: {
+      wavelengthNm: 808,
+      powerMw: 100,
+      timeS: 40,
+      areaCm2: 0.5,
+      mode: 'continuous',
+      points: 4,
+      technique: 'contact'
+    }
   });
   const version = service.listProtocolVersions(protocol.id)[0];
   const session = service.createTreatmentSession({
