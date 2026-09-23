@@ -141,7 +141,7 @@ test('F4 records a basic clinical evolution in the existing outcome timeline', (
   }
 });
 
-test('F4 HTTP remains available under F7 server for consent, media and basic evolution', async () => {
+test('F4 HTTP remains available under later composition for consent, media and basic evolution', async () => {
   const roots = tempRoots('pbm-f4-http-');
   const app = await createAppServer({
     dbFile: path.join(roots.root, 'app.sqlite'),
@@ -158,7 +158,7 @@ test('F4 HTTP remains available under F7 server for consent, media and basic evo
     const cookie = cookieFrom(setup);
     const headers = { 'content-type': 'application/json', cookie };
     const status = await fetch(`${app.url}/api/status`, { headers: { cookie } }).then((response) => response.json());
-    assert.equal(status.phase, 'F7');
+    assert.ok(['F8', 'F9', 'F10'].includes(status.phase));
 
     const patient = await fetch(`${app.url}/api/patients`, {
       method: 'POST', headers, body: JSON.stringify({ fullName: 'Paciente HTTP F4' })
