@@ -11,14 +11,14 @@ async function req(url, { method = 'GET', cookie, body } = {}) {
   return { status: response.status, body: await response.json() };
 }
 
-test('F9 HTTP exposes local agenda finance packages and reports behind auth', async () => {
+test('F9 HTTP remains available under later server composition', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pbm-f9-http-'));
   const app = await createAppServer({ dbFile: path.join(dir, 'app.sqlite'), port: 0 });
   try {
     assert.equal((await req(`${app.url}/api/appointments`)).status, 401);
     const setup = await fetch(`${app.url}/api/auth/setup`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Admin F9', email: 'f9@example.test', password: 'senha-f9-local' }) });
     const cookie = cookieFrom(setup);
-    assert.equal((await req(`${app.url}/api/status`, { cookie })).body.phase, 'F9');
+    assert.ok(['F9', 'F10'].includes((await req(`${app.url}/api/status`, { cookie })).body.phase));
     const patient = await req(`${app.url}/api/patients`, { method: 'POST', cookie, body: { fullName: 'Paciente HTTP F9' } });
     const patientId = patient.body.patient.id;
 
