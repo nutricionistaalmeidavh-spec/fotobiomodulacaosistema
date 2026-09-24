@@ -50,7 +50,7 @@ window.fetch = async function roleAwareFetch(input, init = {}) {
 
   const response = await nativeFetch(input, init);
   if (response.ok && ['/api/auth/status', '/api/auth/login', '/api/auth/setup'].includes(pathname)) {
-    response.clone().json().then(rememberUser).catch(() => {});
+    try { rememberUser(await response.clone().json()); } catch {}
   }
   return response;
 };
