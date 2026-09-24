@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { createSessionToken, hashPassword, hashSessionToken, verifyPassword } from '../core/auth.js';
 
 const SESSION_HOURS = 12;
+const DEFAULT_CLINIC_ID = 'default-clinic';
 
 function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase();
@@ -12,9 +13,10 @@ function mapUser(row) {
   return {
     accountId: row.account_id,
     professionalId: row.professional_id,
+    clinicId: row.clinic_id || null,
     name: row.name,
     email: row.email,
-    role: row.role
+    role: row.membership_role || row.role
   };
 }
 
@@ -41,14 +43,18 @@ export function createAuthService(db) {
     if (!token) return null;
     const tokenHash = hashSessionToken(token);
     const row = db.prepare(`
-      SELECT a.id AS account_id, a.professional_id, a.email, a.role, p.name
+      SELECT a.id AS account_id, a.professional_id, a.email, a.role, p.name,
+             cm.clinic_id, cm.role AS membership_role
       FROM auth_sessions s
       JOIN auth_accounts a ON a.id = s.account_id
       JOIN professionals p ON p.id = a.professional_id
+      LEFT JOIN clinic_memberships cm ON cm.account_id = a.id AND cm.active = 1
       WHERE s.token_hash = ?
         AND s.revoked_at IS NULL
         AND s.expires_at > ?
         AND a.active = 1
+      ORDER BY cm.created_at
+      LIMIT 1
     `).get(tokenHash, new Date().toISOString());
     if (!row) return null;
     db.prepare('UPDATE auth_sessions SET last_seen_at = ? WHERE token_hash = ?')
@@ -74,25 +80,43 @@ export function createAuthService(db) {
           id, professional_id, email, password_salt, password_hash, password_algorithm, role
         ) VALUES (?, ?, ?, ?, ?, ?, 'admin')
       `).run(accountId, professionalId, cleanEmail, credentials.salt, credentials.hash, credentials.algorithm);
+      db.prepare(`
+        INSERT INTO clinic_memberships(id, clinic_id, account_id, role, active)
+        VALUES (?, ?, ?, 'admin', 1)
+      `).run(randomUUID(), DEFAULT_CLINIC_ID, accountId);
       db.exec('COMMIT;');
     } catch (error) {
       db.exec('ROLLBACK;');
       throw error;
     }
     const token = createSession(accountId);
-    return { token, user: { accountId, professionalId, name: cleanName, email: cleanEmail, role: 'admin' } };
+    return {
+      token,
+      user: {
+        accountId,
+        professionalId,
+        clinicId: DEFAULT_CLINIC_ID,
+        name: cleanName,
+        email: cleanEmail,
+        role: 'admin'
+      }
+    };
   }
 
   function login({ email, password }) {
     const cleanEmail = normalizeEmail(email);
     const row = db.prepare(`
       SELECT a.id AS account_id, a.professional_id, a.email, a.role,
-             a.password_salt, a.password_hash, a.active, p.name
+             a.password_salt, a.password_hash, a.active, p.name,
+             cm.clinic_id, cm.role AS membership_role
       FROM auth_accounts a
       JOIN professionals p ON p.id = a.professional_id
+      LEFT JOIN clinic_memberships cm ON cm.account_id = a.id AND cm.active = 1
       WHERE a.email = ? COLLATE NOCASE
+      ORDER BY cm.created_at
+      LIMIT 1
     `).get(cleanEmail);
-    if (!row || !row.active || !verifyPassword(password, row.password_salt, row.password_hash)) {
+    if (!row || !row.active || !row.membership_role || !verifyPassword(password, row.password_salt, row.password_hash)) {
       const error = new Error('Credenciais inválidas.');
       error.code = 'INVALID_CREDENTIALS';
       throw error;
