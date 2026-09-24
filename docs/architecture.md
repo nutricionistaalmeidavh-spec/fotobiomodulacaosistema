@@ -1,22 +1,22 @@
-# Arquitetura — F0 a F7
+# Arquitetura — F0 a F10
 
 ## Princípio
 
-O núcleo clínico permanece local e independente de SaaS, APIs comerciais ou provedores obrigatórios. Infraestrutura fica nas bordas.
+O núcleo permanece local/self-hosted e independente de SaaS, APIs comerciais ou provedores obrigatórios.
 
 ```text
 UI web local
     ↓
-HTTP server / application services
+HTTP server + RBAC
     ↓
-Clinical domain
+application services F10 → ... → F0
+    ↓
+domínio clínico/operacional
     ↓
 SQLite + filesystem local
 ```
 
 ## Composição por fase
-
-A aplicação evolui por composição, preservando os contratos validados das fases anteriores:
 
 ```text
 F0 foundation
@@ -29,116 +29,134 @@ F3 equipment + deterministic adaptation
   ↓
 F4 consent + media + PDF + backup
   ↓
-F4 MVP service + application points
-  ↓
 F5 longitudinal outcomes + timeline
   ↓
 F6 scientific evidence library
   ↓
 F7 anatomical body map
+  ↓
+F8 deterministic advanced clinical search
+  ↓
+F9 agenda + packages + finance + reports
+  ↓
+F10 clinic memberships + RBAC + robustness
 ```
 
-O servidor atual instancia `createF7Service()`. O F7 compõe F6, que compõe F5 e toda a cadeia anterior. As rotas das fases anteriores permanecem disponíveis para regressão e compatibilidade.
+O servidor instancia `createF10Service()`. Cada fase compõe a anterior; rotas e invariantes F0–F9 permanecem cobertos por regressão.
 
 ## Persistência
 
-`database.js` aplica as migrations SQL de `src/db/migrations` em ordem lexical e registra cada versão em `schema_migrations`.
+`database.js` aplica migrations SQL em ordem lexical e registra cada versão em `schema_migrations`.
 
-Migrations atuais:
+- `0001_f0.sql` — domínio clínico e auditoria;
+- `0002_f1.sql` — autenticação local e paciente/atendimento;
+- `0003_f2.sql` — protocolos/dosimetria estruturados;
+- `0004_f3.sql` — equipamento/aplicadores;
+- `0005_f4.sql` — consentimento, mídia e documento;
+- `0006_f5.sql` — outcomes longitudinais;
+- `0007_f6.sql` — evidência científica;
+- F7 reutiliza `application_points.coordinates_json`, sem tabela paralela;
+- `0008_f8.sql` — idade e área profissional em indicações;
+- `0009_f9.sql` — agenda, pacotes, consumos e pagamentos;
+- `0010_f10.sql` — clínica e memberships RBAC.
 
-- `0001_f0.sql` — domínio clínico e auditoria base;
-- `0002_f1.sql` — autenticação local e ciclo de paciente/atendimento;
-- `0003_f2.sql` — metadados estruturados de protocolo/dosimetria;
-- `0004_f3.sql` — capacidades estruturadas de equipamentos/aplicadores;
-- `0005_f4.sql` — consentimento, mídia/documento e imutabilidade do MVP;
-- `0006_f5.sql` — profissional responsável e agrupamento longitudinal em outcomes;
-- `0007_f6.sql` — fontes científicas e vínculos a versões exatas de protocolo.
+## Boundaries
 
-F7 não cria uma tabela paralela de localização. Ele reutiliza `application_points.coordinates_json` com um payload anatômico versionado (`schemaVersion: 1`).
+### Clínicos
 
-SQLite usa `node:sqlite`. A UI não acessa SQL diretamente; todo acesso passa pelos serviços de aplicação.
+- `patients`, `assessments`, `encounters`;
+- `protocols`, `protocol_versions`, `protocol_indications`, `protocol_contraindications`;
+- `equipment`, `applicators`, adaptação determinística;
+- `treatment_sessions`, `application_points`;
+- `outcomes`, `clinical_media`, `consents`, `documents`;
+- `evidence_sources`, `protocol_evidence_links`;
+- catálogo/body map F7.
 
-## Boundaries implementados
+### F8 — motor clínico avançado
 
-- `patients`: identidade clínica, edição controlada e arquivamento não destrutivo;
-- `assessments`: anamnese/avaliação clínica;
-- `encounters`: ciclo do atendimento;
-- `pbm-protocols`: protocolos e versões imutáveis;
-- `protocol-indications`: condição, sintoma, região, objetivo e fase clínica;
-- `pbm-equipment`: equipamentos, aplicadores e capacidades;
-- `equipment-adaptation`: comparação protocolo de referência × equipamento selecionado;
-- `pbm-sessions`: aplicação real com snapshots planejado/aplicado;
-- `application-points`: pontos/localizações efetivamente tratados, incluindo coordenadas F7;
-- `outcomes`: evolução clínica e séries temporais;
-- `clinical-media`: imagens clínicas e metadados de integridade;
-- `consent`: aceite/revogação append-only;
-- `documents`: PDF clínico finalizado e imutável;
-- `evidence-library`: referências científicas locais pesquisáveis;
-- `protocol-evidence`: vínculo explícito entre evidência e `ProtocolVersion` exata;
-- `body-map`: catálogo anatômico determinístico e confirmação de localização pelo profissional;
-- `backup`: snapshot SQLite consistente + arquivos + manifesto SHA-256;
-- `audit`: cadeia append-only verificável.
+F8 consulta dados locais estruturados e retorna protocolo + versão exata + indicações + contraindicações + compatibilidade opcional do aplicador. Não existe camada de score, ranking ou seleção automática de conduta.
 
-## F6 — evidência científica
+Rota principal:
 
-`evidence_sources` armazena metadados bibliográficos e clínicos estruturados. `protocol_evidence_links` vincula a referência a uma versão imutável de protocolo com relação `supports`, `context` ou `contradicts`.
+- `GET /api/clinical-engine/protocols`.
 
-A biblioteca é documental. Não calcula score terapêutico, não altera `ProtocolVersion`, não escolhe dose e não prescreve.
+### F9 — operação clínica
 
-Rotas autenticadas:
+Entidades operacionais ficam separadas do prontuário:
 
-- `GET /api/evidence`;
-- `POST /api/evidence`;
-- `GET /api/protocol-versions/:id/evidence`;
-- `POST /api/protocol-versions/:id/evidence`.
+- `appointments`;
+- `treatment_packages`;
+- `package_usages`;
+- `payments`.
 
-## F7 — mapa corporal
+A recorrência de agenda gera ocorrências explícitas. Consumo de pacote exige sessão PBM real. Valores financeiros são inteiros em centavos. Relatórios são agregações descritivas.
 
-O catálogo anatômico fica em `src/domain/body-map.js` e contém regiões determinísticas, vistas suportadas e centros normalizados. A confirmação do profissional produz um `ApplicationPoint` real com:
+Rotas:
 
-- região canônica;
-- vista `anterior|posterior`;
-- lateralidade;
-- coordenadas `x/y` normalizadas entre 0 e 1;
-- rótulo anatômico;
-- sessão real e sequência.
+- `/api/appointments`;
+- `/api/packages`;
+- `/api/payments`;
+- `/api/reports/operations`.
 
-Rotas autenticadas:
+### F10 — identidade organizacional e RBAC
 
-- `GET /api/body-map/catalog`;
-- `POST /api/sessions/:id/body-map-points`;
-- `GET /api/patients/:id/body-map-points`.
+`clinics` representa a clínica local. `clinic_memberships` liga uma `auth_account` à clínica e define o papel efetivo:
 
-O mapa não possui regra de recomendação terapêutica ou seleção automática de ponto/dose.
+- `admin`;
+- `professional`;
+- `reception`.
 
-## Arquivos locais
+`auth_accounts.role` permanece apenas por compatibilidade; autorização F10 usa a membership ativa. O servidor resolve a permissão antes de executar a rota.
 
-Imagens e PDFs são gravados sob um `storageRoot` configurável. Registros persistem caminho controlado, metadados e SHA-256.
+Permissões canônicas:
 
-O backup usa `VACUUM INTO` para criar um snapshot consistente do SQLite aberto, copia os arquivos clínicos e gera `manifest.json` com tamanho e SHA-256 de cada arquivo. A verificação detecta arquivo ausente, tamanho divergente ou hash divergente.
+- pacientes: `patients.read/write`;
+- prontuário: `clinical.read/write`;
+- agenda: `agenda.read/write`;
+- financeiro: `finance.read/write`;
+- protocolos: `protocols.read/write`;
+- equipamentos: `equipment.read/write`;
+- administração: `audit.read`, `accounts.manage`, `backup.manage`.
+
+A UI adapta a navegação ao papel, mas esconder controles **não** é mecanismo de segurança: o backend continua sendo a autoridade.
+
+## Robustez F10
+
+`verifyOperationalIntegrity()` agrega:
+
+- `PRAGMA integrity_check`;
+- verificação da cadeia SHA-256 de auditoria;
+- contagem de referências operacionais órfãs.
+
+Backup administrativo reutiliza `VACUUM INTO`, arquivos locais e manifesto SHA-256. `previewRestore()` exige backup verificado e destino explícito e não sobrescreve o banco aberto.
+
+A política `media_retention_days` apenas identifica registros elegíveis para revisão. Não existe deleção automática de mídia clínica.
 
 ## Segurança clínica
 
-- O sistema não prescreve nem seleciona dose automaticamente.
-- Dosimetria é matemática determinística baseada nos parâmetros fornecidos pelo profissional.
-- Aplicador com potência variável exige seleção explícita da potência.
-- A adaptação de equipamento nunca sobrescreve o protocolo de referência.
-- ProtocolVersion é imutável.
-- Sessões guardam versão exata do protocolo e parâmetros planejados/aplicados separados.
-- Mudança entre planejado e aplicado exige justificativa profissional.
-- Consentimentos preservam histórico append-only.
-- Documentos finalizados são imutáveis.
-- Auditoria é append-only e encadeada por hash.
-- Evolução F5 compara registros descritivamente; não infere causalidade nem diagnóstico.
-- Evidência F6 permanece referência documental e não modifica o protocolo.
-- Body map F7 apenas registra localização confirmada; não sugere conduta.
+- sem prescrição ou escolha automática de dose;
+- protocolo de referência imutável;
+- parâmetros planejados/aplicados separados;
+- potência variável escolhida explicitamente pelo profissional;
+- evidência F6 documental;
+- body map F7 apenas registra localização;
+- busca F8 determinística e sem ranking terapêutico;
+- agenda F9 não cria aplicação PBM;
+- financeiro F9 não altera prontuário;
+- autorização F10 é server-side;
+- segredos, hashes de senha e hashes de tokens não são expostos em APIs ou auditoria.
 
 ## Interface
 
-O shell continua mobile-first com navegação superior. As novas superfícies são inseridas nos fluxos já existentes:
+A navegação continua superior e responsiva.
 
-- F6 aparece em **Protocolos**, com cadastro, busca e vínculo de evidência;
-- F7 aparece no **workspace do paciente**, com SVG anterior/posterior e pontos registrados em sessão;
-- F5 permanece no workspace com formulário de desfecho, séries, comparação e timeline.
+- F6/F8: **Protocolos**;
+- F7/F5/F4: workspace do paciente;
+- F9: **Agenda**, **Financeiro**, **Relatórios**;
+- F10: **Administração**, visível ao administrador.
 
-Não foi criado menu lateral nem uma arquitetura paralela para F6/F7.
+Para Recepção, a interface limita o workspace do paciente a dados cadastrais e não requisita prontuário/protocolos. Para Profissional, módulos financeiros/administrativos sem permissão são ocultados e continuam bloqueados no servidor.
+
+## Roadmap
+
+A arquitetura funcional termina em F10. Não há fase F11 substituta planejada. A decisão de produto está em `docs/decisions/0002-roadmap-ends-f10-no-ai-rag.md`.
