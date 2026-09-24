@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#111827">
-  <title>ArtiSys Fotobiomodulação — F9</title>
+  <title>ArtiSys Fotobiomodulação — F10</title>
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/f6-f7.css">
 </head>
@@ -27,6 +27,7 @@
         <button data-nav="finance">Financeiro</button>
         <button data-nav="reports">Relatórios</button>
         <button data-nav="audit">Auditoria</button>
+        <button data-nav="admin" hidden>Administração</button>
       </nav>
       <div class="account-chip">
         <span data-auth-user></span>
@@ -37,9 +38,9 @@
     <main class="shell">
       <section class="hero">
         <div>
-          <span class="eyebrow">FASE 9 · OPERAÇÃO CLÍNICA COMPLETA</span>
-          <h1>Agenda, pacotes, financeiro e relatórios locais</h1>
-          <p>A operação administrativa permanece separada do prontuário. Agenda não cria sessão PBM automaticamente, pacotes só consomem sessões reais e relatórios são descritivos.</p>
+          <span class="eyebrow">FASE 10 · MULTI-PROFISSIONAL E ROBUSTEZ</span>
+          <h1>Papéis, permissões, integridade e operação administrativa local</h1>
+          <p>Administrador, profissional e recepção usam permissões distintas validadas no servidor. O roadmap funcional encerra nesta fase.</p>
         </div>
         <span class="phase-badge" data-phase-badge>Carregando…</span>
       </section>
@@ -62,6 +63,7 @@
       }).observe(root, { childList: true, subtree: true });
     })();
   </script>
+  <script type="module" src="/f10-bootstrap.js"></script>
   <script type="module" src="/app.js"></script>
   <script type="module" src="/f2-ui.js"></script>
   <script type="module" src="/f3-ui.js"></script>
@@ -71,5 +73,6 @@
   <script type="module" src="/f7-ui.js"></script>
   <script type="module" src="/f8-ui.js"></script>
   <script type="module" src="/f9-ui.js"></script>
+  <script type="module" src="/f10-ui.js"></script>
 </body>
 </html>
