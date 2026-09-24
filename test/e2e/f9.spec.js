@@ -39,6 +39,15 @@ test('F9 opera agenda pacotes pagamentos e relatórios sem criar sessão clínic
   await page.locator('[name="f9-payment-value"]').fill('100.00');
   await page.locator('[name="f9-payment-method"]').fill('pix');
   await page.locator('[data-create-payment-f9]').click();
+  await page.waitForTimeout(300);
+  const feedback = await page.locator('[data-f9-payment-feedback]').textContent().catch(() => '<feedback ausente>');
+  const apiState = await page.evaluate(async () => {
+    const response = await fetch('/api/payments');
+    return { status: response.status, body: await response.json().catch(() => ({})) };
+  });
+  console.log('F9_PAYMENT_FEEDBACK', feedback);
+  console.log('F9_PAYMENT_API_STATE', JSON.stringify(apiState));
+
   const payment = page.locator('[data-f9-payment]').filter({ hasText: '100,00' }).first();
   await expect(payment).toBeVisible();
   await payment.locator('[data-pay-f9]').click();
