@@ -27,10 +27,28 @@ function patientOptions(patients) {
   return patients.map((patient) => `<option value="${esc(patient.id)}">${esc(patient.fullName)}</option>`).join('');
 }
 
+function paymentRow(item, patients) {
+  const patient = patients.find((entry) => entry.id === item.patientId);
+  return `<tr data-f9-payment data-payment-id="${esc(item.id)}">
+    <td>${esc(patient?.fullName || item.patientId)}</td>
+    <td>${money(item.amountCents)}</td>
+    <td>${esc(item.paymentMethod)}</td>
+    <td>${esc(item.status)}</td>
+    <td>${item.status === 'pending' ? `<button class="secondary compact" data-pay-f9="${esc(item.id)}">Marcar pago</button>` : ''}</td>
+  </tr>`;
+}
+
+function bindPayButton(button) {
+  if (!button || button.dataset.boundF9 === 'true') return;
+  button.dataset.boundF9 = 'true';
+  button.addEventListener('click', async () => {
+    await api(`/api/payments/${encodeURIComponent(button.dataset.payF9)}/pay`, { method: 'POST', body: '{}' });
+    await renderFinance();
+  });
+}
+
 async function renderAgenda() {
-  const [patientsPayload, appointmentsPayload] = await Promise.all([api('/api/patients'), api('/api/appointments')]);
-  const patients = patientsPayload.patients || [];
-  const appointments = appointmentsPayload.appointments || [];
+  const [{ patients = [] }, { appointments = [] }] = await Promise.all([api('/api/patients'), api('/api/appointments')]);
   view.innerHTML = `
     <section class="card" data-f9-agenda>
       <div class="section-head"><div><span class="eyebrow">F9 · AGENDA</span><h2>Agenda clínica</h2></div><span class="status">Operação local</span></div>
@@ -46,7 +64,7 @@ async function renderAgenda() {
       <label>Observação<input name="f9-appointment-notes"></label>
       <div class="actions"><button data-create-appointment-f9>Agendar</button></div>
       <p class="muted" data-f9-agenda-feedback></p>
-      <div class="table-wrap"><table><thead><tr><th>Data</th><th>Paciente</th><th>Tipo</th><th>Status</th><th>Ação</th></tr></thead><tbody data-f9-appointments>
+      <div class="table-wrap"><table><thead><tr><th>Data</th><th>Paciente</th><th>Tipo</th><th>Status</th><th>Ação</th></tr></thead><tbody>
         ${appointments.map((item) => {
           const patient = patients.find((entry) => entry.id === item.patientId);
           return `<tr data-f9-appointment><td>${esc(new Date(item.startsAt).toLocaleString('pt-BR'))}</td><td>${esc(patient?.fullName || item.patientId)}</td><td>${esc(item.appointmentType)}</td><td>${esc(item.status)}</td><td>${item.status === 'scheduled' ? `<button class="secondary compact" data-confirm-appointment-f9="${esc(item.id)}">Confirmar</button>` : ''}</td></tr>`;
@@ -62,13 +80,11 @@ async function renderAgenda() {
       const count = Number(view.querySelector('[name="f9-recurrence-count"]').value || 1);
       await api('/api/appointments', { method: 'POST', body: JSON.stringify({
         patientId: view.querySelector('[name="f9-appointment-patient"]').value,
-        startsAt: new Date(start).toISOString(),
-        endsAt: new Date(end).toISOString(),
+        startsAt: new Date(start).toISOString(), endsAt: new Date(end).toISOString(),
         appointmentType: view.querySelector('[name="f9-appointment-type"]').value,
         recurrence: count > 1 ? { count, intervalDays: Number(view.querySelector('[name="f9-recurrence-days"]').value || 7) } : undefined,
         notes: view.querySelector('[name="f9-appointment-notes"]').value
       }) });
-      feedback.textContent = 'Compromisso registrado.';
       await renderAgenda();
     } catch (error) { feedback.textContent = error.message; }
   });
@@ -82,13 +98,9 @@ async function renderAgenda() {
 }
 
 async function renderFinance() {
-  const [patientsPayload, packagesPayload, paymentsPayload, sessionsPayload] = await Promise.all([
+  const [{ patients = [] }, { packages = [] }, { payments = [] }, { sessions = [] }] = await Promise.all([
     api('/api/patients'), api('/api/packages'), api('/api/payments'), api('/api/sessions')
   ]);
-  const patients = patientsPayload.patients || [];
-  const packages = packagesPayload.packages || [];
-  const payments = paymentsPayload.payments || [];
-  const sessions = sessionsPayload.sessions || [];
   view.innerHTML = `
     <div class="grid two-column" data-f9-finance>
       <section class="card">
@@ -111,8 +123,8 @@ async function renderFinance() {
         <div class="form-grid two"><label>Pacote<select name="f9-consume-package">${packages.map((item) => `<option value="${esc(item.id)}">${esc(item.name)} · ${item.remainingSessions} restante(s)</option>`).join('')}</select></label><label>Sessão real<select name="f9-consume-session">${sessions.map((item) => `<option value="${esc(item.id)}">${esc(item.id)}</option>`).join('')}</select></label></div>
         <button data-consume-package-f9>Consumir sessão no pacote</button><p class="muted" data-f9-consume-feedback></p>
       </section>
-      <section class="card wide"><h2>Pagamentos</h2><div class="table-wrap"><table><thead><tr><th>Paciente</th><th>Valor</th><th>Forma</th><th>Status</th><th></th></tr></thead><tbody>
-        ${payments.map((item) => `<tr data-f9-payment><td>${esc(patients.find((p) => p.id === item.patientId)?.fullName || item.patientId)}</td><td>${money(item.amountCents)}</td><td>${esc(item.paymentMethod)}</td><td>${esc(item.status)}</td><td>${item.status === 'pending' ? `<button class="secondary compact" data-pay-f9="${esc(item.id)}">Marcar pago</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="5">Nenhum pagamento.</td></tr>'}
+      <section class="card wide"><h2>Pagamentos</h2><div class="table-wrap"><table><thead><tr><th>Paciente</th><th>Valor</th><th>Forma</th><th>Status</th><th></th></tr></thead><tbody data-f9-payments>
+        ${payments.map((item) => paymentRow(item, patients)).join('') || '<tr data-f9-empty-payments><td colspan="5">Nenhum pagamento.</td></tr>'}
       </tbody></table></div></section>
     </div>`;
 
@@ -125,7 +137,7 @@ async function renderFinance() {
         totalSessions: Number(view.querySelector('[name="f9-package-sessions"]').value),
         totalAmountCents: Math.round(Number(view.querySelector('[name="f9-package-value"]').value || 0) * 100)
       }) });
-      feedback.textContent = 'Pacote criado.'; await renderFinance();
+      await renderFinance();
     } catch (error) { feedback.textContent = error.message; }
   });
 
@@ -133,14 +145,18 @@ async function renderFinance() {
     const feedback = view.querySelector('[data-f9-payment-feedback]');
     try {
       const due = view.querySelector('[name="f9-payment-due"]').value;
-      await api('/api/payments', { method: 'POST', body: JSON.stringify({
+      const { payment } = await api('/api/payments', { method: 'POST', body: JSON.stringify({
         patientId: view.querySelector('[name="f9-payment-patient"]').value,
         packageId: view.querySelector('[name="f9-payment-package"]').value || null,
         amountCents: Math.round(Number(view.querySelector('[name="f9-payment-value"]').value) * 100),
         paymentMethod: view.querySelector('[name="f9-payment-method"]').value,
         dueAt: due ? new Date(due).toISOString() : null
       }) });
-      feedback.textContent = 'Cobrança registrada.'; await renderFinance();
+      const tbody = view.querySelector('[data-f9-payments]');
+      tbody.querySelector('[data-f9-empty-payments]')?.remove();
+      tbody.insertAdjacentHTML('afterbegin', paymentRow(payment, patients));
+      bindPayButton(tbody.querySelector(`[data-payment-id="${payment.id}"] [data-pay-f9]`));
+      feedback.textContent = 'Cobrança registrada.';
     } catch (error) { feedback.textContent = error.message; }
   });
 
@@ -150,13 +166,11 @@ async function renderFinance() {
       const packageId = view.querySelector('[name="f9-consume-package"]').value;
       const treatmentSessionId = view.querySelector('[name="f9-consume-session"]').value;
       await api(`/api/packages/${encodeURIComponent(packageId)}/consume`, { method: 'POST', body: JSON.stringify({ treatmentSessionId }) });
-      feedback.textContent = 'Sessão consumida no pacote.'; await renderFinance();
+      await renderFinance();
     } catch (error) { feedback.textContent = error.message; }
   });
 
-  for (const button of view.querySelectorAll('[data-pay-f9]')) {
-    button.addEventListener('click', async () => { await api(`/api/payments/${encodeURIComponent(button.dataset.payF9)}/pay`, { method: 'POST', body: '{}' }); await renderFinance(); });
-  }
+  for (const button of view.querySelectorAll('[data-pay-f9]')) bindPayButton(button);
 }
 
 async function renderReports() {
