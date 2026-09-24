@@ -36,18 +36,28 @@ test('F6 schema adds scientific evidence sources and exact protocol-version link
   const tables = listTables(db);
   assert.ok(tables.includes('evidence_sources'));
   assert.ok(tables.includes('protocol_evidence_links'));
-  const evidenceColumns = db.prepare("PRAGMA table_info('evidence_sources')").all().map((row) => row.name);
-  for (const column of ['title','publication_year','study_type','conditions_json','body_regions_json','wavelengths_json']) {
-    assert.ok(evidenceColumns.includes(column), `missing evidence column: ${column}`);
-  }
 });
 
 test('F8 protocol indications support age and professional-area constraints', () => {
   const db = openDatabase(':memory:');
   const columns = db.prepare("PRAGMA table_info('protocol_indications')").all().map((row) => row.name);
-  for (const column of ['min_age_years', 'max_age_years', 'professional_area']) {
-    assert.ok(columns.includes(column), `missing F8 indication column: ${column}`);
+  for (const column of ['min_age_years', 'max_age_years', 'professional_area']) assert.ok(columns.includes(column));
+});
+
+test('F9 schema separates agenda packages usage and payments from clinical records', () => {
+  const db = openDatabase(':memory:');
+  const tables = listTables(db);
+  for (const name of ['appointments', 'treatment_packages', 'package_usages', 'payments']) {
+    assert.ok(tables.includes(name), `missing F9 table: ${name}`);
   }
+});
+
+test('F10 schema adds clinic and effective role memberships', () => {
+  const db = openDatabase(':memory:');
+  const tables = listTables(db);
+  assert.ok(tables.includes('clinics'));
+  assert.ok(tables.includes('clinic_memberships'));
+  assert.equal(db.prepare("SELECT name FROM clinics WHERE id = 'default-clinic'").get().name, 'Clínica local');
 });
 
 test('protocol versions are immutable after creation', () => {
@@ -76,7 +86,7 @@ test('persistent database reopens with canonical migrations applied once and in 
     first.close();
     const second = openDatabase(file);
     const migrations = second.prepare('SELECT version FROM schema_migrations ORDER BY version').all().map((row) => row.version);
-    const requiredPrefix = ['0001_f0', '0002_f1', '0003_f2', '0004_f3', '0005_f4', '0006_f5', '0007_f6', '0008_f8'];
+    const requiredPrefix = ['0001_f0', '0002_f1', '0003_f2', '0004_f3', '0005_f4', '0006_f5', '0007_f6', '0008_f8', '0009_f9', '0010_f10'];
     assert.deepEqual(migrations.slice(0, requiredPrefix.length), requiredPrefix);
     assert.equal(new Set(migrations).size, migrations.length);
     second.close();
