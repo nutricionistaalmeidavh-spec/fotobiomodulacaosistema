@@ -21,7 +21,7 @@ async function jsonRequest(url, { method = 'GET', cookie, body } = {}) {
   return { status: response.status, body: await response.json() };
 }
 
-test('F8 HTTP exposes authenticated deterministic clinical search', async () => {
+test('F8 HTTP search remains available under later server composition', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pbm-f8-http-'));
   const app = await createAppServer({ dbFile: path.join(dir, 'app.sqlite'), port: 0 });
   try {
@@ -37,7 +37,7 @@ test('F8 HTTP exposes authenticated deterministic clinical search', async () => 
     const cookie = cookieFrom(setup);
 
     const status = await jsonRequest(`${app.url}/api/status`, { cookie });
-    assert.equal(status.body.phase, 'F8');
+    assert.ok(['F9', 'F10'].includes(status.body.phase));
 
     const protocol = await jsonRequest(`${app.url}/api/protocols`, {
       method: 'POST', cookie,
