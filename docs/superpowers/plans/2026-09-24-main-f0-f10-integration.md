@@ -1,14 +1,21 @@
 # Main + F0–F10 Integration Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Execution rule:** implement task-by-task with TDD. Do not merge the clinical branch wholesale.
 
-**Goal:** Integrate the complete F0–F10 clinical/operational backend into the current `main` UI without replacing the UI architecture, while making every clinically relevant screen persistent, role-aware, testable, and free of phase-specific duplicate interfaces.
+**Goal:** integrate the complete F0–F10 clinical/operational backend into the current `main` UI without replacing its UI architecture, while making every roadmap capability accessible in an appropriate surface, persistent where it represents business/clinical data, role-aware, and covered by automated tests.
 
-**Architecture:** `main` remains the visual and navigation authority: feature modules, `ClinicalDataGateway`, existing CSS, patient workspace, and route structure are preserved. `feat/f8-f10-clinical-ops-rbac` remains the behavioral/domain authority: migrations, clinical services, auth/RBAC, HTTP routes, evidence/body-map/operations/admin rules, and their unit/HTTP invariants are ported into a new integration branch based on `main`. Phase UIs (`f2-ui.js` through `f10-ui.js`) are not merged; their behaviors are re-exposed through API adapters and the existing `main` feature modules.
+**Source authorities**
 
-**Tech Stack:** Node.js 22+, `node:sqlite`, vanilla ES modules, local HTTP API, Playwright Chromium, `node:test`.
+- UI/navigation authority: `main@717bef304811b89f5450e7b9fb15a57ae7ecc26f`
+- Clinical/domain authority: `feat/f8-f10-clinical-ops-rbac@11f3e12e0001996a94bc2ce3ad412dde56e62eba`
+- Integration target branch: `feat/integrate-main-f0-f10`, created from `main`
 
-**Specs:**
+**Architecture:** preserve the current `main` shell, feature modules, CSS, patient workspace, `ClinicalDataGateway`, and route model. Port the validated migrations, services, domain rules, auth/RBAC and HTTP contracts from the clinical branch. Do not port its phase-specific UI shell. UI feature modules continue to depend on the gateway; new API adapters normalize server payloads for the existing UI.
+
+**Tech stack:** Node.js 22+, `node:sqlite`, vanilla ES modules, local HTTP API, Playwright Chromium, `node:test`.
+
+## Canonical specs
+
 - `docs/superpowers/specs/2026-09-22-ui7-ui8-backend-ready-design.md`
 - `docs/superpowers/specs/2026-09-22-f1-clinical-workspace-design.md`
 - `docs/superpowers/specs/2026-09-22-f3-f5-design.md`
@@ -16,92 +23,95 @@
 - `docs/superpowers/specs/2026-09-23-f8-advanced-clinical-engine-design.md`
 - `docs/superpowers/specs/2026-09-23-f9-clinical-operations-design.md`
 - `docs/superpowers/specs/2026-09-23-f10-multiprofessional-rbac-robustness-design.md`
+- `docs/decisions/0002-roadmap-ends-f10-no-ai-rag.md`
 
-## Global Constraints
+## Non-negotiable constraints
 
-- Start implementation from `main`; do not merge the clinical branch wholesale.
-- Treat the current `main` UI structure as canonical. Do not replace it with the phase UI shell from `feat/f8-f10-clinical-ops-rbac`.
-- Do not import `src/app/public/f2-ui.js`, `f3-ui.js`, `f4-ui.js`, `f5-ui.js`, `f6-ui.js`, `f7-ui.js`, `f8-ui.js`, `f9-ui.js`, `f10-ui.js`, or the clinical branch `index.html` as runtime UI.
-- Port migrations `0002_f1.sql` through `0010_f10.sql` without rewriting `0001_f0.sql`.
-- Clinical and operational runtime data must come from the SQLite/API path; `localStorage`, `sessionStorage`, and the `local-clinical-adapter` must not be the source of truth.
-- The core remains R$0, self-hosted, local-first, and without mandatory paid APIs.
-- F11/AI/RAG remains removed. The integrated roadmap ends at F10.
-- No automatic prescription, automatic dose recommendation, efficacy ranking, or silent protocol mutation.
-- Protocol versions remain immutable; planned and applied session parameters remain separate snapshots.
-- Server-side RBAC is authoritative. UI visibility is convenience, not security.
-- Patient deletion remains non-destructive/archival.
-- Audit history and consent history remain append-only where defined by the phase specs.
-- Backups use a consistent SQLite snapshot plus integrity verification; media retention never auto-deletes clinical assets.
+- `main` remains the UI authority. Do not replace `main/src/app/public/index.html`, `app.js`, feature modules, or CSS with the clinical branch shell.
+- Do not import `f2-ui.js`, `f3-ui.js`, `f4-ui.js`, `f5-ui.js`, `f6-ui.js`, `f7-ui.js`, `f8-ui.js`, `f9-ui.js`, `f10-ui.js`, or `f10-bootstrap.js` into the integrated runtime.
+- Port migrations `0002_f1.sql` through `0010_f10.sql`; do not rewrite `0001_f0.sql`.
+- Persistent clinical and operational records must use SQLite/API. The local adapter may remain only for isolated fixture tests, never as production source of truth.
+- Ephemeral form/checklist state that is not part of the documented F0–F10 data model may remain in component memory until submission; do not invent a new persisted clinical model merely to mirror transient UI state.
+- Core remains R$0, self-hosted, local-first and without mandatory paid APIs.
+- F11/AI/RAG remains removed. The functional roadmap ends at F10.
+- No automatic prescription, automatic dose recommendation, efficacy ranking, hidden protocol mutation, or automatic causal inference.
+- Protocol versions remain immutable. Planned and applied session parameters remain separate snapshots.
+- Server-side RBAC is authoritative. UI visibility never substitutes for API authorization.
+- Patients are archived, not destructively deleted.
+- Audit and consent histories remain append-only where required by the specs.
+- Backup uses a consistent SQLite snapshot and integrity verification. Media-retention tooling never auto-deletes clinical assets.
 
-## Review Focus
+## Critical integration risks to test explicitly
 
-1. **Existing F0 database upgrade:** opening a database that only has `0001_f0` must apply `0002`–`0010` once, preserve all F0 data, and remain reopenable.
-2. **Role bootstrap:** `admin`, `professional`, and `reception` must each load a usable UI without unauthorized requests breaking startup; 401 must return to login and 403 must not expose restricted content.
-3. **Persistence after reload:** patient/anamnesis/consent/evolution/photo/agenda/finance changes must survive a browser reload and a server restart against the same SQLite file.
-4. **Cross-entity integrity:** package/payment patient IDs, session/patient IDs, protocol/version IDs, body-map/session IDs, and evidence/protocol-version IDs must reject mismatched relationships.
-5. **Layout safety:** every routed screen at desktop and mobile widths must have no horizontal document overflow, no input/select/textarea/button clipped outside its visible container, and no zero-size interactive control.
+1. **Legacy F0 database upgrade:** an existing database containing only `0001_f0` upgrades through `0010_f10` once, preserves existing rows and reopens cleanly.
+2. **Role bootstrap:** `admin`, `professional` and `reception` each enter a usable UI without unauthorized startup requests causing 403 failures.
+3. **Route-scoped loading:** replace the current unconditional `refreshAll()` pattern. A role must request only the data allowed for the current route.
+4. **Reception patient access:** Reception can manage patient demographic/administrative data but must never load clinical timeline, anamnesis, outcomes, photos, protocols or sessions without `clinical.read`.
+5. **Persistence:** patient/anamnesis/consent/outcome/media/agenda/package/payment changes survive browser reload and server restart against the same SQLite file.
+6. **Cross-entity integrity:** mismatched patient/package/payment/session/protocol-version/body-map/evidence relationships are rejected without partial writes.
+7. **Responsive layout:** every route at desktop and mobile widths has no document overflow, no field clipped outside its container and no unusably small form control.
 
 ---
 
-## Canonical UI Placement Matrix
+## Canonical UI placement
 
-| Capability | Canonical UI after integration | Notes |
+| Capability | Integrated UI location | Integration rule |
 | --- | --- | --- |
-| F1 patients | `Pacientes` + patient workspace | Replace fixture/local persistence with API persistence. |
-| F1 anamnesis/encounter/history | Patient workspace → `Anamnese`, `Resumo`, `Sessões` | Persist assessments/encounters; timeline comes from backend. |
-| F2 protocol engine/dosimetry | `Protocolos` + session planning | Keep existing calculator; connect structured protocol fields and immutable versions. |
-| F3 equipment/adaptation | `Equipamentos` + session planning | CRUD equipment/applicators and explicit adaptation preview; never overwrite reference protocol. |
-| F4 consent | Patient workspace → `Consentimentos` | Replace local simulation with append-only acceptance/revocation history. |
-| F4 clinical media | Patient workspace → `Fotos` | Real upload/storage metadata/integrity; no local-only preview as source of truth. |
-| F4 PDF/documents | Patient workspace → `Documentos` | Generate/list encounter PDF records and expose verified local document metadata. |
-| F4 backup | `Administração` | Admin-only verified backup actions. |
-| F5 outcomes/evolution | Patient workspace → `Evolução` + `Resumo` | Typed outcomes, timeline, comparison table and non-causal chart. |
-| F6 scientific evidence | `Protocolos` → evidence subview | Search evidence and show exact links to protocol versions; no ranking. |
-| F7 body map | `Sessões` → `Aplicação`; readback in patient session history | Register confirmed anatomical points linked to a real session. |
-| F8 advanced clinical engine | `Protocolos` → clinical search/filter panel; reusable in session planning | Filtering only; no selected winner, efficacy score or auto-prescription. |
-| F9 agenda | Existing `Agenda` | Replace local agenda adapter with persisted appointment API, recurrence, filters and status updates. |
-| F9 packages/payments | New primary route `Financeiro` | Dedicated operational surface because there is no existing canonical home. |
-| F9 operational reports | Existing `Relatórios` | Switch from mixed/local derivation to backend report API; include received/pending summaries. |
-| F10 auth | Login/setup shell before existing app chrome | Preserve main header/navigation after authentication. |
-| F10 RBAC | Role-aware navigation + server enforcement | Hide unavailable routes, but always enforce on API. |
-| F10 clinic/accounts/integrity/backups/retention | `Administração` | Admin-only tabs/sections. |
+| F1 Patients | `Pacientes` | Replace fixture/local state with API persistence. |
+| F1 Anamnesis/encounter/history | Patient workspace → `Anamnese`, `Resumo`, `Sessões` | Professional/Admin only for clinical content. |
+| F2 Protocol engine/dosimetry | `Protocolos` + session planning | Keep calculation UI; connect structured protocol/version data. |
+| F3 Equipment/adaptation | `Equipamentos` + `Sessões > Planejamento` | Show reference vs equipment-derived parameters separately. |
+| F4 Consent | Patient workspace → `Consentimentos` | Replace simulated consent with real append-only history. |
+| F4 Clinical media | Patient workspace → `Fotos` | Real upload and integrity-backed metadata. |
+| F4 PDF/documents | Patient workspace → `Documentos` | Generate/list encounter PDFs and document metadata. |
+| F4 Backup | `Administração` | Admin-only. |
+| F5 Outcomes/evolution | Patient workspace → `Evolução` + `Resumo` | Typed outcomes, timeline, comparisons, non-causal graph. |
+| F6 Scientific evidence | `Protocolos > Evidências` | Link evidence to exact immutable protocol versions. |
+| F7 Body map | `Sessões > Aplicação`; readback in session history | Confirm anatomical points; never infer dose. |
+| F8 Advanced clinical engine | `Protocolos > Busca clínica`; reusable in session planning | Deterministic filtering only, no winner/ranking. |
+| F9 Agenda | Existing `Agenda` | Replace local adapter with persisted appointments/recurrence. |
+| F9 Packages/payments | New primary route `Financeiro` | Dedicated surface; visible only with finance permissions. |
+| F9 Operational reports | Existing `Relatórios` | Use backend report API; include received/pending summaries. |
+| F10 Auth | Login/setup shell before existing main chrome | Keep main chrome after authentication. |
+| F10 RBAC | Role-aware navigation + route loaders + server enforcement | Never preload forbidden modules. |
+| F10 Clinic/accounts/integrity/backups/retention | `Administração` | Replace placeholder `Configurações` for Admin. |
 
-## Test Strategy
+### Role-visible surfaces
 
-Every capability must have all applicable layers below before the integration PR can merge:
+- **Admin:** Dashboard, Pacientes, Agenda, Protocolos, Equipamentos, Sessões, Financeiro, Relatórios, Auditoria, Administração.
+- **Professional:** Dashboard, Pacientes, Agenda, Protocolos, Equipamentos, Sessões. No Financeiro, Relatórios, Auditoria or Administração under the current RBAC matrix.
+- **Reception:** Dashboard, Pacientes, Agenda, Financeiro, Relatórios. Patient access is demographic/administrative only; no clinical workspace tabs.
 
-1. **Domain/unit:** normalization, validation, immutable history, dose math, relationship guards, RBAC matrix.
-2. **Schema/migration:** fresh DB and upgrade from F0-only DB.
-3. **HTTP/API:** auth, permissions, status codes, request/response shapes, persistence.
-4. **Adapter/gateway contract:** UI-facing shapes are normalized by adapters; feature modules never call `/api/*` directly.
-5. **Feature E2E:** each visible workflow is exercised through the current `main` UI.
-6. **Role E2E:** Admin/Professional/Reception navigation and forbidden operations.
-7. **Persistence E2E:** mutate → reload → same data visible.
-8. **Responsive/layout E2E:** desktop + mobile traversal, overflow/clipping assertions for all routed screens.
-9. **Final gate:** `npm run check && npm run test:unit && npm run test:e2e && npm run smoke` on one final commit.
+The server remains the final authority even if the UI hides a route.
 
 ---
 
-### Task 1: Create the integration branch and pin both source authorities
+## Required test layers
 
-**Files:**
-- Create implementation branch: `feat/integrate-main-f0-f10` from current `main`
+Every applicable capability must have:
+
+1. Domain/unit validation.
+2. Fresh-schema and legacy-upgrade migration tests.
+3. HTTP/auth/RBAC contract tests.
+4. Adapter/gateway normalization tests.
+5. Feature E2E through the integrated `main` UI.
+6. Role E2E for Admin/Professional/Reception.
+7. Reload/restart persistence E2E.
+8. Desktop/mobile layout and clipping E2E.
+9. Final `check + unit + e2e + smoke` gate on one SHA.
+
+---
+
+### Task 1 — Create the implementation baseline
+
+**Files**
+- Branch: `feat/integrate-main-f0-f10` from current `main`
 - Create: `docs/integration-sources.md`
-- Test: no runtime test yet; run the current main gate before changing code.
 
-**Interfaces:**
-- Consumes: `main@717bef304811b89f5450e7b9fb15a57ae7ecc26f`, `feat/f8-f10-clinical-ops-rbac@11f3e12e0001996a94bc2ce3ad412dde56e62eba`
-- Produces: a documented integration baseline and denylist of phase UI files.
-
-- [ ] **Step 1: Record the source SHAs and ownership rule**
-
-```markdown
-UI authority: main@717bef304811b89f5450e7b9fb15a57ae7ecc26f
-Clinical/domain authority: feat/f8-f10-clinical-ops-rbac@11f3e12e0001996a94bc2ce3ad412dde56e62eba
-Do not import phase-specific public UI files from the clinical branch.
-```
-
-- [ ] **Step 2: Run the untouched main gate**
+- [ ] Create the branch from `main`, not from the clinical branch.
+- [ ] Record both source SHAs and this rule: `main = UI authority`, clinical branch = `domain/API authority`.
+- [ ] Record the denylist of phase UI files.
+- [ ] Run untouched baseline:
 
 ```bash
 npm install
@@ -112,9 +122,9 @@ npm run test:e2e
 npm run smoke
 ```
 
-Expected: current `main` baseline passes before integration edits.
+Expected: current main is green before integration edits.
 
-- [ ] **Step 3: Commit the integration baseline document**
+- [ ] Commit:
 
 ```bash
 git add docs/integration-sources.md
@@ -123,55 +133,106 @@ git commit -m "docs: pin F0-F10 integration sources"
 
 ---
 
-### Task 2: Port F1–F10 schema, domain, and service chain without changing the main UI
+### Task 2 — Port F1–F10 migrations, domain and service chain without changing the UI
 
-**Files:**
-- Create: `src/db/migrations/0002_f1.sql` … `src/db/migrations/0010_f10.sql`
-- Create/port: `src/app/auth-service.js`, `src/app/f2-service.js` … `src/app/f10-service.js`, `src/app/f4-mvp-service.js`
-- Create/port required domain/core modules under `src/core/` and `src/domain/`
-- Modify only as required for compatibility: `src/app/f0-service.js`
-- Test/port: clinical branch unit/domain tests into `test/*.test.js`
-- Create: `test/integration-schema-upgrade.test.js`
+**Create/port exactly**
 
-**Interfaces:**
-- Consumes: current F0 database/migration and all validated clinical branch services.
-- Produces: `createF10Service(db, { dbFile, storageRoot, backupRoot })` with backward-compatible F0 methods plus F1–F10 methods.
+Migrations:
+- `src/db/migrations/0002_f1.sql`
+- `src/db/migrations/0003_f2.sql`
+- `src/db/migrations/0004_f3.sql`
+- `src/db/migrations/0005_f4.sql`
+- `src/db/migrations/0006_f5.sql`
+- `src/db/migrations/0007_f6.sql`
+- `src/db/migrations/0008_f8.sql`
+- `src/db/migrations/0009_f9.sql`
+- `src/db/migrations/0010_f10.sql`
 
-- [ ] **Step 1: Write the F0-to-F10 upgrade RED test**
+Core:
+- `src/core/auth.js`
+- `src/core/backup.js`
+- `src/core/clinical-storage.js`
+- `src/core/pdf.js`
+- `src/core/rbac.js`
+- reconcile `src/core/audit.js` with the clinical source while retaining all existing main tests.
+
+Domain:
+- `src/domain/body-map.js`
+- `src/domain/equipment-adaptation.js`
+- `src/domain/outcomes.js`
+- reconcile `src/domain/protocols.js`
+- reconcile `src/domain/treatment-sessions.js`
+
+Application services:
+- `src/app/auth-service.js`
+- reconcile `src/app/f0-service.js`
+- `src/app/f2-service.js`
+- `src/app/f3-service.js`
+- `src/app/f4-service.js`
+- `src/app/f4-mvp-service.js`
+- `src/app/f5-service.js`
+- `src/app/f6-service.js`
+- `src/app/f7-service.js`
+- `src/app/f8-service.js`
+- `src/app/f9-service.js`
+- `src/app/f10-service.js`
+- reconcile `src/app/seed.js`
+
+**New test:** `test/integration-schema-upgrade.test.js`
+
+- [ ] Write this RED legacy-upgrade test before copying the migrations:
 
 ```js
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { DatabaseSync } from 'node:sqlite';
 import { openDatabase } from '../src/db/database.js';
 
-test('existing F0 data survives migrations through F10', () => {
-  // Build/open a fixture DB containing 0001_f0 state and a known protocol/session.
-  // Reopen with the integrated migration directory.
-  // Assert 0001..0010 appear once in schema_migrations and the known F0 rows still exist.
-  assert.ok(true);
+test('existing F0 database upgrades through F10 without losing patient rows', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pbm-f0-upgrade-'));
+  const dbFile = path.join(dir, 'legacy.sqlite');
+  const legacy = new DatabaseSync(dbFile);
+  const f0Sql = fs.readFileSync(new URL('../src/db/migrations/0001_f0.sql', import.meta.url), 'utf8');
+
+  legacy.exec(f0Sql);
+  legacy.exec(`
+    CREATE TABLE schema_migrations (
+      version TEXT PRIMARY KEY,
+      applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+  legacy.prepare('INSERT INTO schema_migrations(version) VALUES (?)').run('0001_f0');
+  legacy.prepare('INSERT INTO patients(id, full_name) VALUES (?, ?)').run('legacy-patient', 'Paciente legado');
+  legacy.close();
+
+  const db = openDatabase(dbFile);
+  assert.equal(
+    db.prepare('SELECT full_name FROM patients WHERE id = ?').get('legacy-patient').full_name,
+    'Paciente legado'
+  );
+  assert.deepEqual(
+    db.prepare('SELECT version FROM schema_migrations ORDER BY version').all().map((row) => row.version),
+    ['0001_f0', '0002_f1', '0003_f2', '0004_f3', '0005_f4', '0006_f5', '0007_f6', '0008_f8', '0009_f9', '0010_f10']
+  );
+  db.close();
+  fs.rmSync(dir, { recursive: true, force: true });
 });
 ```
 
-Replace the final assertion during implementation with actual migration/data assertions before GREEN.
-
-- [ ] **Step 2: Port migrations and domain/service files from the clinical branch**
-
-Do not modify `0001_f0.sql`; preserve ordered filenames and service composition through F10.
-
-- [ ] **Step 3: Port the clinical branch unit/domain tests**
-
-Keep the tests that prove F1 workspace, F2 dosimetry/protocol structure, F3 equipment adaptation, F4 consent/media/PDF/backup, F5 outcomes, F6 evidence, F7 body map, F8 filtering, F9 operations, and F10 RBAC/integrity.
-
-- [ ] **Step 4: Run unit/domain tests**
+- [ ] Port/reconcile the clinical branch unit/domain tests for F1–F10. Preserve all current main tests; never replace a main assertion merely to make the port pass.
+- [ ] Run:
 
 ```bash
 npm run check
 npm run test:unit
 ```
 
-Expected: all main tests plus the ported clinical tests pass with no UI change.
+Expected: main tests + F1–F10 unit/domain tests pass while the UI is still unchanged.
 
-- [ ] **Step 5: Commit**
+- [ ] Commit:
 
 ```bash
 git add src/db src/core src/domain src/app test
@@ -180,112 +241,60 @@ git commit -m "feat: port F1-F10 clinical domain onto main"
 
 ---
 
-### Task 3: Replace the F0-only server with the authenticated F10 server while preserving main static assets
+### Task 3 — Replace the F0-only API server with the authenticated F10 server
 
-**Files:**
+**Files**
 - Modify: `src/app/server.js`
-- Test/port: `test/server-http.test.js`
-- Test/port/create: `test/f10-http.test.js`, `test/integration-auth-http.test.js`
+- Reconcile: `test/server-http.test.js`
+- Port/reconcile: `test/f1-http.test.js`, `test/f2-http.test.js`, F3/F4/F6/F7/F8/F9 HTTP tests, `test/f10-http.test.js`
+- Create: `test/integration-auth-http.test.js`
 
-**Interfaces:**
-- Consumes: `createF10Service`, `createAuthService`, `hasPermission`.
-- Produces: the complete authenticated `/api/*` contract while continuing to serve the existing `src/app/public/` from `main`.
+**Rule:** port server behavior, not the clinical branch public HTML/JS shell.
 
-- [ ] **Step 1: Write RED tests for authentication and static-main coexistence**
-
-```js
-assert.equal((await fetch(`${url}/api/patients`)).status, 401);
-assert.equal((await fetch(`${url}/`)).status, 200);
-```
-
-Also assert first-run setup, login cookie, logout, 403 role denial, and existing F0 route compatibility.
-
-- [ ] **Step 2: Port server auth/RBAC/route logic from the clinical branch**
-
-Keep the main `publicDir`; do not port the clinical branch public HTML/JS shell.
-
-- [ ] **Step 3: Verify role enforcement**
-
-```js
-// reception: patients + agenda + finance allowed; clinical/protocol/equipment/admin denied
-// professional: patient + clinical + agenda + protocol allowed; finance/admin denied
-// admin: all permissions allowed
-```
-
-- [ ] **Step 4: Run HTTP/unit gate**
+- [ ] RED: unauthenticated `/api/patients` returns 401 while `/` still serves the `main` HTML.
+- [ ] RED: setup creates first authenticated Admin session; login/logout cookie lifecycle works.
+- [ ] RED: role permissions return 403 exactly according to `src/core/rbac.js`.
+- [ ] Port `createF10Service`, `createAuthService`, cookie handling, route contracts, `storageRoot` and `backupRoot` propagation.
+- [ ] Preserve static serving of current `main/src/app/public`.
+- [ ] Run:
 
 ```bash
 npm run check
 npm run test:unit
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] Commit:
 
 ```bash
 git add src/app/server.js test
-git commit -m "feat: expose F0-F10 authenticated API on main"
+git commit -m "feat: expose authenticated F0-F10 API on main"
 ```
 
 ---
 
-### Task 4: Expand the ClinicalDataGateway and eliminate local runtime clinical state
+### Task 4 — Expand `ClinicalDataGateway` and remove local clinical records from production runtime
 
-**Files:**
+**Files**
 - Create: `src/app/public/data/http-client.js`
+- Create: `src/app/public/data/adapters/auth-api-adapter.js`
 - Create: `src/app/public/data/adapters/clinical-api-adapter.js`
 - Create: `src/app/public/data/adapters/operations-api-adapter.js`
 - Create: `src/app/public/data/adapters/admin-api-adapter.js`
-- Create: `src/app/public/data/adapters/auth-api-adapter.js`
 - Modify: `src/app/public/data/contracts.js`
 - Modify: `src/app/public/data/clinical-data-gateway.js`
 - Modify: `src/app/public/app.js`
-- Keep only for isolated tests/fixtures: `src/app/public/data/adapters/local-clinical-adapter.js`
-- Test: `test/data-gateway.test.js`, `test/api-adapters.test.js`, `test/runtime-source-of-truth.test.js`
+- Keep only for fixture tests: `src/app/public/data/adapters/local-clinical-adapter.js`
+- Create: `test/api-adapters.test.js`
+- Create: `test/runtime-source-of-truth.test.js`
+- Modify: `test/data-gateway.test.js`
 
-**Interfaces:**
-- Consumes: complete `/api/*` contract.
-- Produces: UI-facing methods for auth, patients/intake/consent/evolution/photos/documents, protocols/evidence/engine, equipment/adaptation, sessions/body map, agenda/finance/reports, and admin.
-
-- [ ] **Step 1: Add a RED runtime-source test**
-
-```js
-assert.doesNotMatch(appSource, /createLocalClinicalAdapter\(/);
-assert.doesNotMatch(featureSources, /fetch\(['"]\/api\//);
-```
-
-The application runtime must instantiate API adapters; feature modules must call only the gateway.
-
-- [ ] **Step 2: Add one shared HTTP client**
-
-```js
-export async function apiRequest(path, options = {}) {
-  const response = await fetch(path, options);
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const error = new Error(body.error || `Falha HTTP ${response.status}`);
-    error.status = response.status;
-    throw error;
-  }
-  return body;
-}
-```
-
-- [ ] **Step 3: Implement focused adapters and normalization**
-
-Adapters must translate backend models into the shapes already expected by `main` feature modules instead of forcing every view to understand raw server rows.
-
-- [ ] **Step 4: Change `app.js` runtime wiring**
-
-Replace the `localAdapter` runtime with persisted adapters. Keep fixture/local adapter tests but not production bootstrapping.
-
-- [ ] **Step 5: Run gateway and unit tests**
-
-```bash
-npm run check
-npm run test:unit
-```
-
-- [ ] **Step 6: Commit**
+- [ ] RED: production `app.js` must not instantiate `createLocalClinicalAdapter`.
+- [ ] RED: files under `src/app/public/features/` must not call `/api/*` directly.
+- [ ] Implement one shared HTTP client that attaches status to errors so 401/403 can be handled centrally.
+- [ ] Normalize backend records in adapters; do not make individual screens understand raw DB/API shapes.
+- [ ] Gateway must expose auth, patients, intake/encounters, consents, outcomes, media/documents, protocols/evidence/engine, equipment/adaptation, sessions/body map, agenda, finance/reports and admin methods.
+- [ ] Run `npm run check && npm run test:unit`.
+- [ ] Commit:
 
 ```bash
 git add src/app/public/data src/app/public/app.js test
@@ -294,100 +303,69 @@ git commit -m "feat: route main UI through persisted F0-F10 gateway"
 
 ---
 
-### Task 5: Add authentication shell and role-aware navigation to the existing main chrome
+### Task 5 — Add auth shell, permission-aware navigation and route-scoped loading
 
-**Files:**
+**Files**
+- Create: `src/app/public/features/auth.js`
 - Modify: `src/app/public/index.html`
 - Modify: `src/app/public/app.js`
 - Modify: `src/app/public/ui/navigation.js`
 - Modify: `src/app/public/styles.css`
-- Create: `src/app/public/features/auth.js`
-- Test: `test/navigation-rbac.test.js`
-- E2E: `test/e2e/auth-rbac-main.spec.js`
+- Create: `test/navigation-rbac.test.js`
+- Create: `test/e2e/auth-rbac-main.spec.js`
 
-**Interfaces:**
-- Consumes: gateway auth methods and authenticated user `{ id, professionalId, name, email, role }`.
-- Produces: setup/login/logout shell and permission-aware route list.
-
-- [ ] **Step 1: Write RED E2E for setup/login/logout and all three roles**
-
-The test must assert that each role reaches a usable route set and that hidden routes cannot be opened by directly navigating/clicking stale DOM state.
-
-- [ ] **Step 2: Add `#auth-root` and hide the current app chrome until authenticated**
-
-Preserve the existing main header, CSS and feature architecture after login.
-
-- [ ] **Step 3: Make navigation permission-aware**
-
-```js
-const ROUTE_PERMISSIONS = {
-  patients: 'patients.read', agenda: 'agenda.read', finance: 'finance.read',
-  protocols: 'protocols.read', equipment: 'equipment.read', reports: 'finance.read',
-  audit: 'audit.read', admin: 'accounts.manage'
-};
-```
-
-UI filtering must mirror, not replace, server RBAC.
-
-- [ ] **Step 4: Handle auth errors centrally**
-
-A 401 returns to login; a 403 shows an access message without destroying the app shell.
-
-- [ ] **Step 5: Run E2E subset**
+- [ ] RED E2E: setup/login/logout work in the existing main shell.
+- [ ] RED E2E: Admin/Professional/Reception see only permitted routes.
+- [ ] Replace unconditional `refreshAll()` with permission-aware, route-scoped loaders. Reception login must not request protocols, equipment, sessions, audit or clinical workspace data.
+- [ ] Add `#auth-root`; keep the existing header/navigation/content chrome hidden until authenticated.
+- [ ] A 401 transitions to login. A 403 shows an access message and does not destroy the shell.
+- [ ] `Dashboard` must derive its cards from endpoints permitted to the current role rather than preloading every domain.
+- [ ] `Audit` is Admin-only under the current RBAC matrix.
+- [ ] Run:
 
 ```bash
 npx playwright test test/e2e/auth-rbac-main.spec.js
+npm run test:unit
 ```
 
-- [ ] **Step 6: Commit**
+- [ ] Commit:
 
 ```bash
 git add src/app/public test
-git commit -m "feat: integrate auth and role-aware main navigation"
+git commit -m "feat: integrate auth and permission-aware main shell"
 ```
 
 ---
 
-### Task 6: Convert patient workspace from local simulation to F1/F4/F5 persistence
+### Task 6 — Integrate F1/F4/F5 into the existing patient experience
 
-**Files:**
+**Files**
 - Modify: `src/app/public/features/patients.js`
 - Modify: `src/app/public/features/patient-workspace.js`
 - Modify: `src/app/public/features/clinical-intake.js`
 - Modify: `src/app/public/features/evolution.js`
 - Modify: `src/app/public/features/photos.js`
 - Create: `src/app/public/features/documents.js`
-- Test: adapter/unit tests for normalization
-- E2E: `test/e2e/patient-clinical-workspace-integrated.spec.js`
+- Create: `test/e2e/patient-clinical-workspace-integrated.spec.js`
+- Create: `test/e2e/reception-patient-access.spec.js`
 
-**Interfaces:**
-- Consumes: persisted patient, encounter/assessment, consent, outcome, media, PDF/document and timeline APIs.
-- Produces: the existing patient tabs backed by SQLite.
-
-- [ ] **Step 1: Write RED E2E for patient persistence across reload**
-
-Create patient → save anamnesis/encounter → accept consent → add typed outcome → upload allowed image → generate document → reload → reopen patient → assert all records remain.
-
-- [ ] **Step 2: Replace local anamnesis copy and actions**
-
-Remove UI language such as “rascunho local” and “simular consentimento”. Use real encounter/assessment and consent endpoints.
-
-- [ ] **Step 3: Wire F5 evolution**
-
-Expose VAS, functional numeric, edema, ROM and text outcomes; render chronological timeline, comparison, and local SVG/polyline without causal claims.
-
-- [ ] **Step 4: Wire clinical media and documents**
-
-Photos must use backend media records and integrity metadata. `Documentos` must list/generated encounter PDFs rather than show a placeholder.
-
-- [ ] **Step 5: Run patient E2E plus unit gate**
+- [ ] RED Professional/Admin E2E: create patient → create encounter/assessment → consent → typed outcome → allowed image → PDF/document → reload → all records remain.
+- [ ] RED Reception E2E: Reception can open/edit demographic data but no clinical tabs, timeline, outcomes, photos, protocols or sessions are requested/rendered.
+- [ ] Map the Anamnese form to actual F1 fields (`chiefComplaint`, `history`, `medications`, `allergies`, `precautions`, `painScore`). Do not silently overload unrelated fields.
+- [ ] Replace “rascunho local” and simulated consent copy/actions with real persisted behavior.
+- [ ] Consent UI shows immutable acceptance/revocation history.
+- [ ] Evolution exposes VAS, functional numeric, edema, ROM and text outcomes, with timeline/comparison and local SVG/polyline chart; no causal claims.
+- [ ] Photos use backend media upload/integrity metadata. Local preview may exist only before/while uploading.
+- [ ] `Documentos` generates/lists encounter PDFs instead of a placeholder.
+- [ ] Keep C09 as a transient pre-session safety UI unless a documented F0–F10 persisted field exists; do not invent persistence just for the checklist.
+- [ ] Run:
 
 ```bash
 npm run test:unit
-npx playwright test test/e2e/patient-clinical-workspace-integrated.spec.js test/e2e/patients.spec.js test/e2e/patient-workspace.spec.js
+npx playwright test test/e2e/patients.spec.js test/e2e/patient-workspace.spec.js test/e2e/patient-clinical-workspace-integrated.spec.js test/e2e/reception-patient-access.spec.js
 ```
 
-- [ ] **Step 6: Commit**
+- [ ] Commit:
 
 ```bash
 git add src/app/public/features test
@@ -396,39 +374,29 @@ git commit -m "feat: persist patient clinical workspace through F5"
 
 ---
 
-### Task 7: Integrate F2/F6/F8 into the existing Protocolos surface
+### Task 7 — Integrate F2/F6/F8 into `Protocolos`
 
-**Files:**
+**Files**
 - Modify: `src/app/public/features/f0-views.js`
 - Modify: `src/app/public/features/dosimetry.js`
 - Create: `src/app/public/features/protocol-search.js`
 - Create: `src/app/public/features/evidence.js`
 - Modify: `src/app/public/clinical.css`
-- E2E: `test/e2e/protocol-evidence-engine-integrated.spec.js`
+- Create: `test/e2e/protocol-evidence-engine-integrated.spec.js`
 
-**Interfaces:**
-- Consumes: structured protocols/version APIs, evidence API, clinical-engine search API.
-- Produces: one Protocolos page with version library, dosimetry, clinical filtering, evidence and exact-version links.
-
-- [ ] **Step 1: Write RED E2E**
-
-Assert deterministic filters by condition/symptom/body region/goal/phase/age/professional area/wavelength, no ranking/winner language, evidence visible for exact protocol version, and immutable version history.
-
-- [ ] **Step 2: Add a Protocolos subnavigation**
-
-Use sections such as `Biblioteca`, `Busca clínica`, `Evidências`; do not add separate F6/F8 top-level routes.
-
-- [ ] **Step 3: Keep dosimetry as calculation, not recommendation**
-
-The calculator can derive math from explicit inputs; it must not choose dose or treatment.
-
-- [ ] **Step 4: Run protocol/evidence E2E**
+- [ ] RED: exact immutable versions remain visible after creating a new version.
+- [ ] RED: clinical search filters condition, symptom, body region, therapeutic goal, phase, age, professional area and wavelength deterministically.
+- [ ] RED: no score, ranking, “melhor protocolo”, efficacy winner or auto-prescription language appears.
+- [ ] RED: evidence links display the exact protocol version relationship.
+- [ ] Keep one canonical top-level `Protocolos` route with internal sections `Biblioteca`, `Busca clínica`, `Evidências`; do not add F6/F8 top-level routes.
+- [ ] Keep dosimetry as math from explicit professional inputs, never as a dose chooser.
+- [ ] Run:
 
 ```bash
-npx playwright test test/e2e/protocol-evidence-engine-integrated.spec.js test/e2e/protocol-dosimetry.spec.js
+npx playwright test test/e2e/protocol-dosimetry.spec.js test/e2e/protocol-evidence-engine-integrated.spec.js
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] Commit:
 
 ```bash
 git add src/app/public/features src/app/public/clinical.css test
@@ -437,43 +405,29 @@ git commit -m "feat: integrate protocol evidence and clinical search UI"
 
 ---
 
-### Task 8: Integrate F3/F7 into Equipamentos and the guided Sessão workflow
+### Task 8 — Integrate F3/F7 into `Equipamentos` and the guided `Sessões` workflow
 
-**Files:**
+**Files**
 - Modify: `src/app/public/features/equipment-workspace.js`
 - Modify: `src/app/public/features/treatment-workflow.js`
 - Modify: `src/app/public/features/f0-views.js`
 - Create: `src/app/public/features/body-map.js`
 - Modify: `src/app/public/clinical.css`
-- E2E: `test/e2e/session-equipment-bodymap-integrated.spec.js`
+- Create: `test/e2e/session-equipment-bodymap-integrated.spec.js`
 
-**Interfaces:**
-- Consumes: equipment/applicator CRUD, adaptation preview, session create, body-map catalog and session point APIs.
-- Produces: explicit equipment selection/adaptation and confirmed anatomical points during the existing five-step session flow.
-
-- [ ] **Step 1: Write RED E2E**
-
-Create/select applicator → select protocol version → preview adaptation → require explicit `selectedPowerMw` for variable-power applicator → register body-map point → save session → verify planned/applied snapshots and saved anatomical point after reload.
-
-- [ ] **Step 2: Expand Equipamentos**
-
-Expose manufacturer/model/applicators/wavelength/power/spot/mode/frequency/status fields already validated by F3.
-
-- [ ] **Step 3: Insert adaptation into Planejamento**
-
-Show reference parameters and equipment-derived parameters side by side; never mutate the reference version.
-
-- [ ] **Step 4: Insert body map into Aplicação**
-
-The professional selects/confirm points; the component stores anatomical identity/laterality/coordinates only and does not infer dose.
-
-- [ ] **Step 5: Run equipment/session E2E**
+- [ ] RED: create/select equipment and applicator with structured wavelength/power/spot/mode/frequency fields.
+- [ ] RED: variable-power applicator requires explicit `selectedPowerMw`.
+- [ ] RED: adaptation preview shows `referenceParameters` separately from `equipmentDerivedParameters` and leaves reference version unchanged.
+- [ ] RED: body-map point is selected/confirmed in `Aplicação`, persisted against a real session, and visible after reload.
+- [ ] RED: planned/applied snapshots and professional adjustment reason remain intact.
+- [ ] Place adaptation in `Planejamento`; place body map in `Aplicação`; keep the existing five-stage session UX.
+- [ ] Run:
 
 ```bash
 npx playwright test test/e2e/equipment.spec.js test/e2e/treatment-workflow.spec.js test/e2e/session-equipment-bodymap-integrated.spec.js
 ```
 
-- [ ] **Step 6: Commit**
+- [ ] Commit:
 
 ```bash
 git add src/app/public/features src/app/public/clinical.css test
@@ -482,43 +436,28 @@ git commit -m "feat: integrate equipment adaptation and body map workflow"
 
 ---
 
-### Task 9: Replace local Agenda and add the F9 Financeiro surface
+### Task 9 — Persist `Agenda` and add the F9 `Financeiro` route
 
-**Files:**
+**Files**
 - Modify: `src/app/public/features/agenda.js`
 - Create: `src/app/public/features/finance.js`
 - Modify: `src/app/public/ui/navigation.js`
 - Modify: `src/app/public/app.js`
 - Modify: `src/app/public/styles.css`
-- E2E: `test/e2e/agenda-finance-integrated.spec.js`
+- Create: `test/e2e/agenda-finance-integrated.spec.js`
 
-**Interfaces:**
-- Consumes: appointments, treatment packages, package consumption, payments.
-- Produces: persisted agenda and dedicated finance route.
-
-- [ ] **Step 1: Write RED E2E for agenda persistence**
-
-Create recurring appointment → reload → verify occurrences → update status → verify no PBM session is auto-created.
-
-- [ ] **Step 2: Remove local-only agenda copy**
-
-Agenda must call the operations adapter and display persisted status; retain filters and patient navigation.
-
-- [ ] **Step 3: Add `Financeiro` to primary navigation only for permitted roles**
-
-The page must support package creation, real-session consumption, payment creation, mark-paid action and patient/status filtering.
-
-- [ ] **Step 4: Write relationship E2E**
-
-Attempt to attach a package belonging to patient A to a payment/session for patient B and assert the API/UI reports the mismatch without changing data.
-
-- [ ] **Step 5: Run operations E2E**
+- [ ] RED Agenda: recurring appointment persists after reload, status updates persist, and appointment completion does not auto-create a PBM session.
+- [ ] Remove “somente local” behavior/copy and use appointment API through the gateway.
+- [ ] Add `Financeiro` only for `finance.read` roles.
+- [ ] Financeiro supports package creation, explicit consumption by a real patient session, payment creation, mark-paid and filters.
+- [ ] RED integrity: package for patient A cannot be attached/consumed against patient B; UI reports the backend rejection and no partial write occurs.
+- [ ] Run:
 
 ```bash
 npx playwright test test/e2e/agenda.spec.js test/e2e/agenda-finance-integrated.spec.js
 ```
 
-- [ ] **Step 6: Commit**
+- [ ] Commit:
 
 ```bash
 git add src/app/public/features src/app/public/ui src/app/public/app.js src/app/public/styles.css test
@@ -527,38 +466,26 @@ git commit -m "feat: persist agenda and add finance operations UI"
 
 ---
 
-### Task 10: Switch Relatórios to the F9 backend report and preserve descriptive-only semantics
+### Task 10 — Integrate F9 backend reports into existing `Relatórios`
 
-**Files:**
+**Files**
 - Modify: `src/app/public/features/reports.js`
 - Modify: `src/app/public/data/clinical-data-gateway.js`
-- Test: `test/operational-report.test.js`
-- E2E: `test/e2e/reports-integrated.spec.js`
+- Modify: `test/operational-report.test.js`
+- Create: `test/e2e/reports-integrated.spec.js`
 
-**Interfaces:**
-- Consumes: `/api/reports/operations`.
-- Produces: persisted operational counts plus received/pending finance summaries.
-
-- [ ] **Step 1: Write RED E2E**
-
-Create/prepare a paid payment and pending payment → open Relatórios → apply period → assert received and pending totals plus session/patient operational counts.
-
-- [ ] **Step 2: Remove the mixed local fallback from runtime reporting**
-
-Keep pure report derivation only for unit tests if useful; runtime reports should use the backend report adapter.
-
-- [ ] **Step 3: Preserve non-clinical wording**
-
-No efficacy, prognosis, or treatment recommendation claims may be derived from operational report data.
-
-- [ ] **Step 4: Run report tests**
+- [ ] RED: paid and pending payments created in Financeiro are reflected in received/pending totals for the selected period.
+- [ ] RED: session and patient operational counts come from persisted backend records.
+- [ ] Runtime reports use `/api/reports/operations`; mixed local fallback is not used in production.
+- [ ] Preserve descriptive-only copy: no efficacy, prognosis or clinical recommendation is derived from operational reports.
+- [ ] Run:
 
 ```bash
 npm run test:unit
 npx playwright test test/e2e/reports.spec.js test/e2e/reports-integrated.spec.js
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] Commit:
 
 ```bash
 git add src/app/public/features/reports.js src/app/public/data test
@@ -567,38 +494,27 @@ git commit -m "feat: integrate persisted F9 operational reports"
 
 ---
 
-### Task 11: Turn Configurações into F10 Administração and robustness UI
+### Task 11 — Replace placeholder `Configurações` with F10 `Administração`
 
-**Files:**
+**Files**
 - Create: `src/app/public/features/admin.js`
 - Modify: `src/app/public/ui/navigation.js`
 - Modify: `src/app/public/app.js`
 - Modify: `src/app/public/styles.css`
-- E2E: `test/e2e/admin-robustness-integrated.spec.js`
+- Create: `test/e2e/admin-robustness-integrated.spec.js`
 
-**Interfaces:**
-- Consumes: clinic/account/session/integrity/backup/restore-preview/audit/media-retention admin APIs.
-- Produces: admin-only operational management surface.
-
-- [ ] **Step 1: Write RED admin E2E**
-
-Admin can create account, assign role, disable account, revoke sessions, inspect integrity, create verified backup, preview restore, filter audit and list retention candidates. Professional/Reception cannot open or call these actions.
-
-- [ ] **Step 2: Replace the placeholder `settings` route**
-
-Use `Administração` for admins. If a non-admin needs personal settings later, that is a separate scope; do not expose empty configuration placeholders in this integration.
-
-- [ ] **Step 3: Preserve destructive-safety rules**
-
-Restore remains preview/verification in the UI unless the existing F10 service explicitly supports a safe restore action; media retention lists candidates but never auto-deletes.
-
-- [ ] **Step 4: Run F10 E2E**
+- [ ] RED Admin E2E: create account, assign role, disable account, revoke sessions, inspect SQLite/audit integrity, create verified backup, preview restore, filter audit and list media-retention candidates.
+- [ ] RED non-admin: Professional/Reception neither see Administração nor succeed when calling its protected API directly.
+- [ ] Replace the current placeholder settings route with `Administração` for Admin only. Do not expose an empty Configurações page to other roles.
+- [ ] Restore remains verification/preview unless the existing F10 service explicitly supports a safe restore operation.
+- [ ] Media retention lists candidates; it never auto-deletes files.
+- [ ] Run:
 
 ```bash
 npx playwright test test/e2e/auth-rbac-main.spec.js test/e2e/admin-robustness-integrated.spec.js
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] Commit:
 
 ```bash
 git add src/app/public/features/admin.js src/app/public/ui/navigation.js src/app/public/app.js src/app/public/styles.css test
@@ -607,164 +523,151 @@ git commit -m "feat: integrate F10 administration and robustness UI"
 
 ---
 
-### Task 12: Add global route/role/layout regression coverage
+### Task 12 — Add global route, role, persistence and layout regression gates
 
-**Files:**
+**Files**
 - Create: `test/e2e/all-routes-layout.spec.js`
 - Create: `test/e2e/persistence-reload.spec.js`
-- Modify: `playwright.config.js` only if projects/viewports need explicit additions.
+- Modify: `playwright.config.js` to include explicit desktop and mobile projects if not already present.
 
-**Interfaces:**
-- Consumes: every integrated route and role.
-- Produces: a cross-cutting regression gate that catches missing navigation destinations, clipped controls, overflow, and non-persistent UI mutations.
-
-- [ ] **Step 1: Traverse all routes by role**
-
-```js
-const routesByRole = {
-  admin: ['dashboard', 'patients', 'agenda', 'protocols', 'equipment', 'finance', 'reports', 'sessions', 'audit', 'admin'],
-  professional: ['dashboard', 'patients', 'agenda', 'protocols', 'equipment', 'sessions'],
-  reception: ['dashboard', 'patients', 'agenda', 'finance', 'reports']
-};
-```
-
-Adjust only if the final permission matrix intentionally differs; keep server and UI tests synchronized.
-
-- [ ] **Step 2: Add no-overflow/no-clipping assertions**
+- [ ] Traverse every visible route for each role and assert the current route renders a non-empty main panel.
+- [ ] For Reception, assert network requests never include clinical-only endpoints during Dashboard, Pacientes, Agenda, Financeiro or Relatórios.
+- [ ] For mutations to patient, outcome, consent, media, appointment, package and payment: perform through UI → reload → assert persisted value → restart test server against the same DB → assert again.
+- [ ] At desktop and mobile (360–390 px wide), assert no horizontal document overflow.
+- [ ] For every visible `input`, `select`, `textarea` and non-compact button, assert positive dimensions and minimum usable size; fields must be at least 88 px wide and 36 px high, textareas at least 72 px high.
+- [ ] For every visible field, compare its rectangle against the nearest `.card`, `.form-grid`, `.workspace-panel`, `.treatment-stage-panel` or `main` container and assert it does not extend beyond that container by more than 1 px.
+- [ ] Example geometry helper:
 
 ```js
-const metrics = await page.evaluate(() => ({
+const layout = await page.evaluate(() => ({
   viewport: document.documentElement.clientWidth,
   scrollWidth: document.documentElement.scrollWidth,
-  controls: [...document.querySelectorAll('input, select, textarea, button')]
+  fields: [...document.querySelectorAll('input, select, textarea, button:not(.compact)')]
     .filter((el) => !el.hidden && getComputedStyle(el).display !== 'none')
     .map((el) => {
-      const r = el.getBoundingClientRect();
-      return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height };
+      const rect = el.getBoundingClientRect();
+      const container = el.closest('.card, .form-grid, .workspace-panel, .treatment-stage-panel, main');
+      const bounds = (container || document.documentElement).getBoundingClientRect();
+      return {
+        tag: el.tagName,
+        width: rect.width,
+        height: rect.height,
+        left: rect.left,
+        right: rect.right,
+        containerLeft: bounds.left,
+        containerRight: bounds.right
+      };
     })
 }));
-expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.viewport + 1);
-for (const control of metrics.controls) {
-  expect(control.width).toBeGreaterThan(0);
-  expect(control.height).toBeGreaterThan(0);
-  expect(control.left).toBeGreaterThanOrEqual(-1);
-  expect(control.right).toBeLessThanOrEqual(metrics.viewport + 1);
+expect(layout.scrollWidth).toBeLessThanOrEqual(layout.viewport + 1);
+for (const field of layout.fields) {
+  expect(field.width).toBeGreaterThanOrEqual(88);
+  expect(field.height).toBeGreaterThanOrEqual(field.tag === 'TEXTAREA' ? 72 : 36);
+  expect(field.left).toBeGreaterThanOrEqual(field.containerLeft - 1);
+  expect(field.right).toBeLessThanOrEqual(field.containerRight + 1);
 }
 ```
 
-Run at desktop and at least one mobile viewport around 360–390 px width.
-
-- [ ] **Step 3: Add reload persistence scenarios**
-
-For patient, outcome, consent, media, appointment, package and payment: mutate through UI → reload → assert persisted state is visible.
-
-- [ ] **Step 4: Run complete E2E**
+- [ ] Run complete E2E:
 
 ```bash
 npm run test:e2e
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] Commit:
 
 ```bash
 git add test/e2e playwright.config.js
-git commit -m "test: cover integrated routes persistence and layout"
+git commit -m "test: cover integrated roles persistence and layout"
 ```
 
 ---
 
-### Task 13: Documentation, dead-code cleanup, and final single-commit gate
+### Task 13 — Cleanup, documentation and final merge gate
 
-**Files:**
+**Files**
 - Modify: `README.md`
 - Modify: `docs/architecture.md`
 - Modify: `docs/domain-model.md`
 - Modify: `docs/reuse-map.md`
-- Keep/port: `docs/decisions/0002-roadmap-ends-f10-no-ai-rag.md`
-- Remove from integration branch if accidentally introduced: phase-specific UI files and local-runtime fixture wiring.
+- Port: `docs/decisions/0002-roadmap-ends-f10-no-ai-rag.md`
+- Remove any accidentally introduced phase-specific UI files or runtime local-adapter wiring.
 
-**Interfaces:**
-- Consumes: completed integrated application.
-- Produces: one merge-ready branch whose docs match runtime behavior.
-
-- [ ] **Step 1: Search for stale implementation language**
+- [ ] Search stale end-user copy:
 
 ```bash
-grep -R "Somente local\|não persistido\|simular consentimento\|F11\|AI/RAG" src/app/public README.md docs || true
+grep -R "Somente local\|não persistido\|simular consentimento" src/app/public || true
 ```
 
-Only historical/spec references may remain where intentionally documented; no end-user runtime copy should claim integrated features are local simulations.
+Expected: none for functionality that is now persisted.
 
-- [ ] **Step 2: Search for direct API access from feature modules**
+- [ ] Search forbidden F11 runtime references:
+
+```bash
+grep -R "F11\|AI/RAG" src README.md docs || true
+```
+
+Historical decision/spec mentions may remain only where they explicitly document removal; there must be no runtime module or future-roadmap claim.
+
+- [ ] Search direct API access from feature modules:
 
 ```bash
 grep -R "fetch(.*\/api\|api(.*\/api" src/app/public/features || true
 ```
 
-Expected: feature modules use the gateway/adapters, not direct endpoint calls.
+Expected: features use gateway/adapters only.
 
-- [ ] **Step 3: Search for phase UI leakage**
+- [ ] Search phase UI leakage:
 
 ```bash
 find src/app/public -maxdepth 1 -type f -name 'f*-ui.js' -print
 ```
 
-Expected on the integration branch: none of the clinical branch phase UI files are required by `index.html`.
+Expected: none required by integrated `index.html`.
 
-- [ ] **Step 4: Run the final fresh gate on one final commit**
-
-```bash
-npm run check
-npm run test:unit
-npm run test:e2e
-npm run smoke
-```
-
-Expected: all four commands PASS on the same SHA.
-
-- [ ] **Step 5: Verify architectural constraints manually from the diff**
-
-Confirm no paid runtime dependency, no F11/AI/RAG module, no auto-prescription/ranking, no mutation of reference protocol versions, no local runtime source-of-truth, and no server-side RBAC weakening.
-
-- [ ] **Step 6: Commit documentation/cleanup**
+- [ ] Review diff for: no paid runtime dependency; no auto-prescription/ranking; no reference-protocol mutation; no local clinical source of truth; no RBAC weakening.
+- [ ] Commit documentation/cleanup:
 
 ```bash
 git add README.md docs src/app/public test
 git commit -m "docs: finalize integrated F0-F10 architecture"
 ```
 
-- [ ] **Step 7: Run the final gate again after the documentation/cleanup commit**
+- [ ] Run the final gate on that exact SHA:
 
 ```bash
 npm run check && npm run test:unit && npm run test:e2e && npm run smoke
 ```
 
-Only after this exact SHA is green should the integration PR target `main`.
+Only this green SHA may open the merge-ready PR to `main`.
 
 ---
 
-## Recommended execution grouping
+## Execution dependencies and safe parallelism
 
-The integration should not be executed as one giant merge commit.
+**Serial foundation:** Task 1 → Task 2 → Task 3 → Task 4 → Task 5.
 
-**Serial foundation:** Tasks 1 → 2 → 3 → 4 → 5.
+Only after auth/gateway contracts are stable may these workstreams run in isolated worktrees/branches:
 
-After the gateway/auth contracts are stable, these workstreams can proceed in isolated worktrees/branches and then be reconciled into the integration branch:
+- Task 6: patient clinical workspace
+- Task 7: protocols/evidence/clinical engine
+- Tasks 9–10: agenda/finance/reports
+- Task 11: administration (depends on Task 5)
 
-- Patient clinical workspace: Task 6
-- Protocol/evidence/engine: Task 7
-- Agenda/Finance/Reports: Tasks 9–10
-- Administration: Task 11 (depends on Task 5)
-
-Task 8 depends on the protocol/equipment contracts from Task 7 and should land after them. Task 12 must run only after all visible surfaces are integrated. Task 13 is the final convergence gate.
+Task 8 depends on the protocol/equipment contracts stabilized by Task 7. Task 12 starts only after all visible surfaces are integrated. Task 13 is the final convergence gate.
 
 ## Merge rule
 
-Do not merge `feat/f8-f10-clinical-ops-rbac` directly into `main`. Merge only the purpose-built `feat/integrate-main-f0-f10` branch after:
+Do **not** merge `feat/f8-f10-clinical-ops-rbac` directly into `main`.
 
-- all main UI routes are preserved or intentionally replaced by a documented canonical route;
-- every F0–F10 capability has a UI location where applicable;
-- all clinical/operational runtime data is API/SQLite-backed;
-- all role rules pass server and browser tests;
-- all legacy `main` E2E tests either still pass or have been updated only where the integrated behavior intentionally changed;
-- the final syntax/unit/E2E/smoke gate is green on one SHA.
+Merge only `feat/integrate-main-f0-f10` after all conditions below are true:
+
+- every F0–F10 capability has a canonical UI location where applicable;
+- the existing main UI architecture is preserved;
+- production clinical/operational records are API/SQLite-backed;
+- Admin/Professional/Reception route and API permissions pass;
+- Reception never loads clinical-only patient data;
+- legacy main E2E tests still pass or were changed only where integrated behavior intentionally superseded local simulation;
+- persistence survives reload/restart;
+- responsive no-overflow/no-clipping gate passes on all routes;
+- `npm run check`, `npm run test:unit`, `npm run test:e2e` and `npm run smoke` are green on the same final commit.
