@@ -131,13 +131,17 @@ async function renderFinance() {
   view.querySelector('[data-create-package-f9]')?.addEventListener('click', async () => {
     const feedback = view.querySelector('[data-f9-package-feedback]');
     try {
-      await api('/api/packages', { method: 'POST', body: JSON.stringify({
+      const { package: createdPackage } = await api('/api/packages', { method: 'POST', body: JSON.stringify({
         patientId: view.querySelector('[name="f9-package-patient"]').value,
         name: view.querySelector('[name="f9-package-name"]').value,
         totalSessions: Number(view.querySelector('[name="f9-package-sessions"]').value),
         totalAmountCents: Math.round(Number(view.querySelector('[name="f9-package-value"]').value || 0) * 100)
       }) });
-      await renderFinance();
+      const paymentPackage = view.querySelector('[name="f9-payment-package"]');
+      const consumePackage = view.querySelector('[name="f9-consume-package"]');
+      paymentPackage.add(new Option(createdPackage.name, createdPackage.id));
+      consumePackage.add(new Option(`${createdPackage.name} · ${createdPackage.remainingSessions} restante(s)`, createdPackage.id));
+      feedback.textContent = 'Pacote criado.';
     } catch (error) { feedback.textContent = error.message; }
   });
 
