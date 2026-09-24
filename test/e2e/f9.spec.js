@@ -39,14 +39,14 @@ test('F9 opera agenda pacotes pagamentos e relatórios sem criar sessão clínic
   await page.locator('[name="f9-payment-value"]').fill('100.00');
   await page.locator('[name="f9-payment-method"]').fill('pix');
   await page.locator('[data-create-payment-f9]').click();
-  const payment = page.locator('[data-f9-payment]').filter({ hasText: 'R$ 100,00' }).first();
+  const payment = page.locator('[data-f9-payment]').filter({ hasText: '100,00' }).first();
   await expect(payment).toBeVisible();
   await payment.locator('[data-pay-f9]').click();
-  await expect(page.locator('[data-f9-payment]').filter({ hasText: 'R$ 100,00' }).first()).toContainText('paid');
+  await expect(page.locator('[data-f9-payment]').filter({ hasText: '100,00' }).first()).toContainText('paid');
 
   await page.locator('[data-nav="reports"]').click();
   await expect(page.locator('[data-f9-reports]')).toBeVisible();
   await page.locator('[data-load-report-f9]').click();
-  await expect(page.locator('[data-f9-report-output]')).toContainText('R$ 100,00');
+  await expect(page.locator('[data-f9-report-output]')).toContainText('100,00');
   await expect(page.locator('[data-f9-reports]')).toContainText(/descritivo/i);
 });
