@@ -1,172 +1,163 @@
-# Modelo de domínio — F0 a F7
+# Modelo de domínio — F0 a F10
 
 ## Núcleo clínico
 
 ### Professional
-Profissional responsável por avaliações, sessões, consentimentos, documentos, outcomes, vínculos de evidência e eventos auditáveis.
+Profissional responsável por avaliações, sessões, documentos, outcomes e eventos auditáveis.
 
 ### Patient
-Raiz do histórico clínico. Possui dados cadastrais, estado ativo/arquivado e relacionamentos com avaliações, atendimentos, sessões, mídia, evolução e pontos anatômicos aplicados.
+Raiz do histórico clínico, com dados cadastrais e arquivamento não destrutivo.
 
-### Assessment
-Avaliação/anamnese vinculada ao paciente e ao atendimento. Guarda queixa principal, histórico, medicações, alergias, precauções, escore de dor e notas clínicas.
-
-### Encounter
-Atendimento clínico com início/finalização. Sessões PBM, documentos, mídia, outcomes e pontos de aplicação podem ser relacionados ao atendimento direta ou indiretamente.
+### Assessment / Encounter
+Avaliação/anamnese e ciclo do atendimento. Sessões, documentos, mídia e outcomes podem ser vinculados ao atendimento.
 
 ## Fotobiomodulação
 
-### Protocol
-Identidade estável de um protocolo clínico.
-
-### ProtocolVersion
-Snapshot imutável do protocolo. Uma mudança clínica gera nova versão; versões anteriores nunca são sobrescritas.
-
-Os parâmetros PBM podem incluir comprimento de onda, potência, tempo, área, energia, fluência, irradiância, modo, frequência, quantidade de pontos e técnica.
+### Protocol / ProtocolVersion
+`Protocol` é a identidade estável. `ProtocolVersion` é snapshot imutável; qualquer mudança gera nova versão.
 
 ### ProtocolIndication
-Relaciona a versão do protocolo a condição, sintoma, região corporal, objetivo terapêutico e fase clínica.
+Relaciona uma versão a condição, sintoma, região, objetivo e fase clínica. F8 acrescenta restrições opcionais:
+
+- `min_age_years`;
+- `max_age_years`;
+- `professional_area`.
+
+Ausência desses campos não cria restrição presumida.
 
 ### ProtocolContraindication
-Precaução/contraindicação rastreável por versão.
+Precaução/contraindicação pertencente à versão exata do protocolo.
 
-### Equipment
-Equipamento físico real, com fabricante, modelo, série, observações/limitações e estado ativo.
-
-### Applicator
-Aplicador/ponteira de um equipamento. Registra comprimento de onda, potência fixa ou faixa de potência, área/spot, modos e frequências suportadas.
+### Equipment / Applicator
+Representam equipamento e ponteira reais, incluindo comprimento de onda, potência fixa/faixa, área, modos e frequências.
 
 ### Equipment adaptation
-Não é uma nova versão do protocolo. É um cálculo derivado e separado que compara:
+Resultado derivado e separado:
 
-- `referenceParameters` — valores imutáveis da ProtocolVersion;
-- `equipmentDerivedParameters` — valores matematicamente derivados para o equipamento selecionado;
-- `warnings` — incompatibilidades ou dados faltantes.
+- `referenceParameters` — versão imutável;
+- `equipmentDerivedParameters` — cálculo para o aplicador selecionado;
+- `warnings` — incompatibilidades/dados faltantes.
 
-Quando a potência é variável, a escolha da potência pertence ao profissional.
+Potência variável exige escolha explícita do profissional.
 
 ### TreatmentSession
-Registro da aplicação realizada. Mantém protocolo/versão exatos e snapshots `planned_parameters_json` e `applied_parameters_json` separados. Divergência clínica relevante exige justificativa profissional.
+Aplicação real com protocolo/versão exatos e snapshots planejado/aplicado separados.
 
-### ApplicationPoint
-Ponto/local individual tratado durante uma sessão. Registra sequência, região/anatomia textual, coordenadas estruturadas opcionais e parâmetros da aplicação. O histórico é imutável.
+### ApplicationPoint / BodyMapPoint
+Ponto aplicado em sessão real. F7 interpreta `coordinates_json` com `regionId`, vista, lateralidade e `x/y` normalizados. Body map não cria entidade terapêutica autônoma.
 
-Na F7, `coordinates_json` recebe um payload anatômico versionado:
-
-- `schemaVersion: 1`;
-- `regionId` canônico;
-- `view` (`anterior` ou `posterior`);
-- `laterality`;
-- `x` e `y` normalizados entre 0 e 1.
-
-O mapa corporal não cria uma entidade terapêutica separada: ele confirma a localização de um `ApplicationPoint` real de uma sessão real.
-
-## Governança e MVP clínico
+## Governança clínica
 
 ### Consent
-Evento de consentimento versionado. Aceite e revogação são registros append-only; o histórico não é sobrescrito.
+Aceite/revogação versionados e append-only.
 
 ### ClinicalMedia
-Imagem clínica armazenada em filesystem local. O banco guarda vínculo clínico, nome original, MIME, tamanho, caminho e SHA-256.
+Mídia local com vínculo clínico, caminho e SHA-256.
 
 ### Document
-Documento clínico. PDFs de atendimento podem ser finalizados localmente, armazenados com SHA-256 e tornam-se imutáveis quando finalizados.
-
-### Backup
-Exportação operacional do banco e arquivos clínicos. O snapshot SQLite é criado com `VACUUM INTO`, acompanhado por `manifest.json` com tamanho/hash de cada arquivo e verificação de integridade.
-
-## Evolução longitudinal F5
+Documento clínico; quando finalizado torna-se imutável.
 
 ### Outcome
-Registro clínico temporal associado ao paciente e, quando aplicável, a atendimento e sessão.
+Medida longitudinal vinculada ao paciente e opcionalmente a atendimento/sessão. Tipos canônicos incluem VAS 0–10, funcional numérico, edema, ROM e texto. Comparações são descritivas e não causais.
 
-Campos relevantes:
+### EvidenceSource / ProtocolEvidenceLink
+Referência científica local e vínculo documental a `ProtocolVersion` exata (`supports`, `context`, `contradicts`). Não altera parâmetros clínicos.
 
-- `patient_id`;
-- `encounter_id` opcional;
-- `treatment_session_id` opcional;
-- `professional_id`;
-- `metric_type`;
-- `metric_value`;
-- `metric_unit`;
-- `narrative`;
-- `baseline_group` opcional;
-- `measured_at`.
+## F8 — consulta clínica avançada
 
-Tipos canônicos implementados:
+F8 não cria uma entidade terapêutica nova. `searchClinicalProtocols()` projeta dados já persistidos:
 
-- `vas_pain` — valor de 0 a 10, unidade canônica `0-10`;
-- `functional_numeric` — valor numérico finito, unidade opcional;
-- `edema` — valor numérico finito com unidade obrigatória;
-- `rom` — valor numérico finito, unidade padrão `deg`;
-- `text` — narrativa obrigatória, sem valor numérico.
+- protocolo e versão atual;
+- indicações estruturadas;
+- faixa etária/área profissional opcionais;
+- contraindicações/precauções da versão;
+- compatibilidade determinística com aplicador quando solicitado.
 
-`baseline_group` permite agrupar registros comparáveis de uma mesma métrica. O serviço F5 gera a série ordenada, primeiro valor, último valor e variação absoluta. Esses resultados são descritivos e não representam inferência causal.
+O resultado não possui score terapêutico nem campo de recomendação automática.
 
-### Patient timeline
-A timeline agrega eventos clínicos persistidos, incluindo avaliações/atendimentos, sessões PBM, consentimentos, mídia, documentos, outcomes e pontos de aplicação, mantendo ordenação temporal e identidade dos registros.
+## F9 — operação clínica
 
-## Biblioteca científica F6
+### Appointment
+Compromisso operacional com paciente, profissional opcional, início/fim, tipo, status e série de recorrência opcional. Recorrências são materializadas em registros explícitos.
 
-### EvidenceSource
-Referência científica armazenada localmente. Pode registrar:
+### TreatmentPackage
+Pacote do paciente com nome, quantidade total de sessões, valor total em centavos, validade e status.
 
-- título;
-- autores;
-- ano de publicação;
-- fonte/periódico;
-- tipo de estudo;
-- DOI e URL;
-- resumo;
-- condições clínicas estruturadas;
-- regiões corporais estruturadas;
-- comprimentos de onda relacionados.
+### PackageUsage
+Vínculo explícito entre um pacote e uma `TreatmentSession` real. A mesma sessão não pode consumir o mesmo pacote duas vezes e deve pertencer ao mesmo paciente.
 
-A entidade é documental. Sua presença não altera parâmetros clínicos nem representa recomendação de tratamento.
+### Payment
+Cobrança/pagamento com paciente, pacote opcional, valor inteiro em centavos, forma, status, vencimento e quitação.
 
-### ProtocolEvidenceLink
-Vínculo explícito entre uma `EvidenceSource` e uma `ProtocolVersion` exata.
+### OperationsReport
+Não é tabela. É projeção descritiva por período sobre agenda, sessões, protocolos, outcomes, pagamentos, profissionais e equipamentos.
 
-Relações suportadas:
+## F10 — organização, autorização e robustez
 
-- `supports` — referência documentada como suporte;
-- `context` — referência contextual;
-- `contradicts` — referência documentada como evidência divergente/contrária.
+### Clinic
+Representa a instalação/clínica local. Pode definir `media_retention_days` para revisão de mídia.
 
-O vínculo possui nota opcional, é auditável e nunca modifica a `ProtocolVersion` relacionada.
+### AuthAccount
+Conta local com credenciais scrypt e status ativo. A coluna legada `role` permanece por compatibilidade.
 
-## Mapa corporal F7
+### ClinicMembership
+Fonte de verdade F10 para papel efetivo da conta na clínica:
 
-### BodyMapRegion
-Entrada de catálogo anatômico determinístico mantida no domínio. Define identificador canônico, rótulo, vistas suportadas e centros normalizados para representação SVG.
+- `admin`;
+- `professional`;
+- `reception`.
 
-Não contém dose, energia, protocolo recomendado nem regra de decisão terapêutica.
+A membership possui estado ativo e é resolvida durante autenticação/sessão.
 
-### BodyMapPoint
-Não é uma tabela nova. É a interpretação F7 de um `ApplicationPoint` que contém coordenadas anatômicas estruturadas e foi confirmado pelo profissional em uma sessão PBM existente.
+### AuthSession
+Sessão local com token armazenado somente como hash. Administração lista apenas metadados; token/hash não é exposto. Revogação pode invalidar todas as sessões de uma conta.
+
+### Permission
+Não é persistida individualmente. A matriz canônica em `src/core/rbac.js` deriva permissões do papel e o HTTP server valida cada família de rota.
+
+### OperationalIntegrity
+Projeção de verificação composta por:
+
+- `PRAGMA integrity_check`;
+- integridade da cadeia de `AuditEvent`;
+- contagens de referências operacionais órfãs.
+
+### Backup / RestorePreview
+Backup é snapshot consistente local com manifesto SHA-256. `RestorePreview` valida o backup e um destino explícito, sem substituir o banco aberto.
+
+### MediaRetentionCandidate
+Projeção de mídias anteriores ao limite configurado. É somente uma fila para revisão; nenhum registro/arquivo é apagado automaticamente.
 
 ## Auditoria
 
 ### AuditEvent
-Evento append-only com `prev_hash` e `event_hash` para cadeia SHA-256 verificável. Ações clínicas relevantes registram profissional, entidade, payload e horário.
-
-F6/F7 acrescentam eventos como criação de evidência, vínculo de evidência a versão de protocolo e registro de ponto anatômico.
+Evento append-only com `prev_hash` e `event_hash`. F8 é leitura determinística; F9/F10 auditam mutações operacionais e administrativas, incluindo snapshots anterior/posterior quando aplicável.
 
 ## Invariantes centrais
 
 1. `ProtocolVersion` é imutável.
-2. Sessão aponta para a versão exata do protocolo utilizada.
+2. Sessão aponta para versão exata do protocolo.
 3. Planejado e aplicado são snapshots separados.
-4. Alteração entre planejado/aplicado exige justificativa.
-5. Adaptação por equipamento não altera o protocolo de referência.
+4. Divergência exige justificativa profissional.
+5. Adaptação de equipamento não altera protocolo de referência.
 6. Potência variável não é escolhida automaticamente.
 7. Consentimentos preservam histórico append-only.
-8. Pontos de aplicação preservam histórico imutável.
-9. Documento finalizado é imutável.
-10. Auditoria é append-only e verificável.
-11. Outcome registra profissional e tempo da medida.
-12. Comparação longitudinal não diagnostica e não atribui causalidade ao tratamento.
-13. Evidência científica é referência documental e não altera silenciosamente parâmetros de protocolo.
-14. Um vínculo de evidência aponta para uma versão exata, preservando a versão científica/profissional original.
-15. O mapa corporal registra apenas localização confirmada pelo profissional; não sugere ponto, protocolo, dose ou conduta.
-16. Coordenadas anatômicas F7 pertencem a uma sessão real por meio de `ApplicationPoint` e não substituem o registro clínico da aplicação.
+8. Documento finalizado é imutável.
+9. Auditoria é append-only e verificável.
+10. Outcome não produz diagnóstico nem atribuição causal.
+11. Evidência científica é documental.
+12. Body map só registra localização confirmada.
+13. Busca F8 não gera ranking, prescrição ou valor presumido.
+14. Compromisso F9 não cria sessão PBM automaticamente.
+15. PackageUsage exige sessão real e não admite duplicidade no pacote.
+16. Valores monetários F9 usam centavos inteiros.
+17. Membership F10 define o papel efetivo para autorização.
+18. UI não é autoridade de permissão; o servidor é.
+19. Conta desativada deixa de autenticar e suas sessões podem ser revogadas.
+20. Senhas/tokens/hashes nunca são expostos em respostas administrativas.
+21. Restauração não sobrescreve silenciosamente o banco aberto.
+22. Retenção de mídia não implica deleção automática.
+
+## Roadmap
+
+O modelo funcional planejado termina em F10. Não existe uma F11 substituta no roadmap vigente.
