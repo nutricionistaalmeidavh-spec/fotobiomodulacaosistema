@@ -65,15 +65,22 @@ test('F0 clinical safety surfaces remain represented after modular extraction', 
   assert.match(audit, /Persistido · backend F0/);
 });
 
-test('only F0ApiAdapter contains frontend API endpoints', () => {
-  const allowed = path.join(frontendRoot, 'data', 'adapters', 'f0-api-adapter.js');
+test('frontend API endpoints stay inside focused data adapters', () => {
+  const adapterRoot = path.join(frontendRoot, 'data', 'adapters');
   const offenders = jsFiles(frontendRoot)
-    .filter((file) => file !== allowed)
+    .filter((file) => !file.startsWith(`${adapterRoot}${path.sep}`))
     .filter((file) => /\/api\//.test(fs.readFileSync(file, 'utf8')));
   assert.deepEqual(offenders, []);
 
-  const adapter = fs.readFileSync(allowed, 'utf8');
-  for (const endpoint of ['/api/protocols', '/api/sessions', '/api/audit']) assert.match(adapter, new RegExp(endpoint));
+  for (const file of [
+    'data/adapters/f0-api-adapter.js',
+    'data/adapters/auth-api-adapter.js',
+    'data/adapters/clinical-api-adapter.js',
+    'data/adapters/operations-api-adapter.js',
+    'data/adapters/admin-api-adapter.js'
+  ]) {
+    assert.match(readPublic(file), /\/api\//, `${file} should own transport endpoints`);
+  }
 });
 
 test('backend-ready feature modules depend on the gateway rather than transport details', () => {
