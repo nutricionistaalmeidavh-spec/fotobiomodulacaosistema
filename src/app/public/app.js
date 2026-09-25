@@ -4,9 +4,11 @@ import {
   renderSecondaryNavigation,
   setMobileNavOpen
 } from './ui/navigation.js';
-import { UI_FIXTURES } from './data/fixtures.js';
 import { createF0ApiAdapter } from './data/adapters/f0-api-adapter.js';
-import { createLocalClinicalAdapter } from './data/adapters/local-clinical-adapter.js';
+import { createClinicalApiAdapter } from './data/adapters/clinical-api-adapter.js';
+import { createOperationsApiAdapter } from './data/adapters/operations-api-adapter.js';
+import { createAdminApiAdapter } from './data/adapters/admin-api-adapter.js';
+import { createAuthApiAdapter } from './data/adapters/auth-api-adapter.js';
 import { createClinicalDataGateway } from './data/clinical-data-gateway.js';
 import { createDashboardView } from './features/dashboard.js';
 import { createPatientsView } from './features/patients.js';
@@ -36,7 +38,10 @@ const mobileNavToggle = document.querySelector('[data-mobile-nav-toggle]');
 
 const gateway = createClinicalDataGateway({
   f0Adapter: createF0ApiAdapter(),
-  localAdapter: createLocalClinicalAdapter(UI_FIXTURES)
+  clinicalAdapter: createClinicalApiAdapter(),
+  operationsAdapter: createOperationsApiAdapter(),
+  authAdapter: createAuthApiAdapter(),
+  adminAdapter: createAdminApiAdapter()
 });
 
 function showMessage(message, kind = 'warning') {

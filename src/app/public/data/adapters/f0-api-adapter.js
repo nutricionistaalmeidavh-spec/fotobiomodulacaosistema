@@ -1,16 +1,8 @@
 import { DATA_SOURCE } from '../contracts.js';
+import { apiRequest } from '../http-client.js';
 
 export function createF0ApiAdapter({ request = fetch } = {}) {
-  async function json(path, options = {}) {
-    const response = await request(path, {
-      ...options,
-      headers: { 'content-type': 'application/json', ...(options.headers || {}) }
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || `Falha HTTP ${response.status}`);
-    return payload;
-  }
-
+  const json = (path, options = {}) => apiRequest(path, { request, ...options });
   return {
     async getFoundationStatus() {
       return json('/api/status');
@@ -20,13 +12,11 @@ export function createF0ApiAdapter({ request = fetch } = {}) {
       return (payload.protocols || []).map((item) => ({ ...item, source: DATA_SOURCE.PERSISTED }));
     },
     async createProtocol(input) {
-      const payload = await json('/api/protocols', { method: 'POST', body: JSON.stringify(input) });
+      const payload = await json('/api/protocols', { method: 'POST', body: input });
       return { ...payload.protocol, source: DATA_SOURCE.PERSISTED };
     },
     async createProtocolVersion(protocolId, input) {
-      const payload = await json(`/api/protocols/${encodeURIComponent(protocolId)}/versions`, {
-        method: 'POST', body: JSON.stringify(input)
-      });
+      const payload = await json(`/api/protocols/${encodeURIComponent(protocolId)}/versions`, { method: 'POST', body: input });
       return { ...(payload.version || payload), source: DATA_SOURCE.PERSISTED };
     },
     async listEquipment() {
@@ -38,7 +28,7 @@ export function createF0ApiAdapter({ request = fetch } = {}) {
       return (payload.sessions || []).map((item) => ({ ...item, source: DATA_SOURCE.PERSISTED }));
     },
     async createSession(input) {
-      const payload = await json('/api/sessions', { method: 'POST', body: JSON.stringify(input) });
+      const payload = await json('/api/sessions', { method: 'POST', body: input });
       return { ...(payload.session || payload), source: DATA_SOURCE.PERSISTED };
     },
     async getAuditState() {
