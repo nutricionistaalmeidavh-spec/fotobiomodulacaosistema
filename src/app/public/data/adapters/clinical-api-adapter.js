@@ -244,6 +244,24 @@ export function createClinicalApiAdapter({ request = fetch } = {}) {
       return persisted(payload.evidence || []);
     },
 
+    async createEvidence(input) {
+      const payload = await json('/api/evidence', { method: 'POST', body: input });
+      return persisted(payload.evidence);
+    },
+
+    async listProtocolEvidence(protocolVersionId) {
+      const payload = await json(`/api/protocol-versions/${encodeURIComponent(protocolVersionId)}/evidence`);
+      return persisted(payload.evidence || []);
+    },
+
+    async linkEvidenceToProtocolVersion(protocolVersionId, evidenceId, note = '') {
+      const payload = await json(`/api/protocol-versions/${encodeURIComponent(protocolVersionId)}/evidence`, {
+        method: 'POST',
+        body: { evidenceId, note }
+      });
+      return persisted(payload.link || payload.evidence || payload);
+    },
+
     async searchClinicalProtocols(filters = {}) {
       const payload = await json(withQuery('/api/clinical-engine/protocols', filters));
       return persisted(payload.results || []);
