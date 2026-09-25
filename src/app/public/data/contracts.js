@@ -21,6 +21,7 @@ export const CLINICAL_ADAPTER_METHODS = Object.freeze([
   'getClinicalIntake',
   'updateAnamnesis',
   'updateConsent',
+  'revokeConsent',
   'updateSafetyChecklist',
   'listEvolution',
   'addEvolution',
@@ -30,6 +31,8 @@ export const CLINICAL_ADAPTER_METHODS = Object.freeze([
   'startEncounter',
   'listConsents',
   'listOutcomes',
+  'listDocuments',
+  'generateEncounterPdf',
   'listEvidence',
   'searchClinicalProtocols',
   'getBodyMapCatalog'
