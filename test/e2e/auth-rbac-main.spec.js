@@ -62,12 +62,15 @@ test.describe('F10 auth and RBAC on canonical main UI', () => {
 
       await page.locator('[data-nav="patients"]').click();
       await expect(page.getByRole('heading', { name: 'Pacientes', exact: true })).toBeVisible();
-      await page.getByRole('button', { name: 'Ana Martins', exact: true }).first().click();
-      await expect(page.getByText('Seu perfil pode acessar o cadastro administrativo, mas não o prontuário clínico.')).toBeVisible();
+      const anaRow = page.locator('[data-patient-row]').filter({ hasText: 'Ana Martins' });
+      await expect(anaRow).toBeVisible();
+      await expect(anaRow.getByRole('button', { name: 'Editar cadastro de Ana Martins' })).toBeVisible();
+      await expect(anaRow.getByRole('button', { name: 'Abrir prontuário de Ana Martins' })).toHaveCount(0);
       expect(clinicalRequests).toEqual([]);
 
       expect((await page.request.get('/api/audit')).status()).toBe(403);
       expect((await page.request.get('/api/protocols')).status()).toBe(403);
+      expect(clinicalRequests).toEqual([]);
     } finally {
       await context.close();
     }
