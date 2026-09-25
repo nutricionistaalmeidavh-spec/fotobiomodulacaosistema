@@ -22,7 +22,9 @@ jobs:
         run: npm run check
       - name: Unit and domain tests
         run: npm run test:unit
-      - name: Browser E2E
-        run: npm run test:e2e
+      - name: T1-T5 auth and RBAC E2E
+        run: npx playwright test test/e2e/auth-rbac-main.spec.js
       - name: Smoke
         run: npm run smoke
+      - name: Browser E2E
+        run: npm run test:e2e
