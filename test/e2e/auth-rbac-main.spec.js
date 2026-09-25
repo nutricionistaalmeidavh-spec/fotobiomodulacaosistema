@@ -72,11 +72,15 @@ test.describe('F10 auth and RBAC on canonical main UI', () => {
     }
   });
 
-  test('logout returns to login and revoked session cannot reopen the app', async ({ page }) => {
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Sair', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Entrar', exact: true })).toBeVisible();
-    await page.reload();
-    await expect(page.getByRole('heading', { name: 'Entrar', exact: true })).toBeVisible();
+  test('logout returns to login and revoked session cannot reopen the app', async ({ browser }) => {
+    const { context, page } = await loginAs(browser, 'professional-e2e@example.test', 'senha-e2e-prof-123');
+    try {
+      await page.getByRole('button', { name: 'Sair', exact: true }).click();
+      await expect(page.getByRole('heading', { name: 'Entrar', exact: true })).toBeVisible();
+      await page.reload();
+      await expect(page.getByRole('heading', { name: 'Entrar', exact: true })).toBeVisible();
+    } finally {
+      await context.close();
+    }
   });
 });
