@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
 
 const BASE = 'http://127.0.0.1:8788';
+const EMPTY_STORAGE = { cookies: [], origins: [] };
 
 async function loginAs(browser, email, password) {
-  const context = await browser.newContext({ baseURL: BASE });
+  const context = await browser.newContext({ baseURL: BASE, storageState: EMPTY_STORAGE });
   const page = await context.newPage();
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Entrar', exact: true })).toBeVisible();
@@ -61,7 +62,7 @@ test.describe('F10 auth and RBAC on canonical main UI', () => {
 
       await page.locator('[data-nav="patients"]').click();
       await expect(page.getByRole('heading', { name: 'Pacientes', exact: true })).toBeVisible();
-      await page.getByRole('button', { name: 'Ana Martins', exact: true }).click();
+      await page.getByRole('button', { name: 'Ana Martins', exact: true }).first().click();
       await expect(page.getByText('Seu perfil pode acessar o cadastro administrativo, mas não o prontuário clínico.')).toBeVisible();
       expect(clinicalRequests).toEqual([]);
 
