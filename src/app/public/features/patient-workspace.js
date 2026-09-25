@@ -2,6 +2,7 @@ import { emptyState, escapeHtml, statusBadge } from '../ui/primitives.js';
 import { createClinicalIntakePanels } from './clinical-intake.js';
 import { createEvolutionView } from './evolution.js';
 import { createPhotosView } from './photos.js';
+import { createDocumentsView } from './documents.js';
 
 export const WORKSPACE_TABS = Object.freeze([
   { id: 'summary', label: 'Resumo' },
@@ -19,6 +20,7 @@ export function createPatientWorkspaceView({ gateway, onBack, onChanged, onMessa
   let intakePanels = null;
   let evolutionView = null;
   let photosView = null;
+  let documentsView = null;
 
   async function setPatient(patientId) {
     local.patientId = patientId;
@@ -27,12 +29,13 @@ export function createPatientWorkspaceView({ gateway, onBack, onChanged, onMessa
     intakePanels = createClinicalIntakePanels({ gateway, patientId, onChanged, onMessage });
     evolutionView = createEvolutionView({ gateway, patientId, onChanged, onMessage });
     photosView = createPhotosView({ gateway, patientId, onChanged, onMessage });
-    await Promise.all([intakePanels.load(), evolutionView.load(), photosView.load()]);
+    documentsView = createDocumentsView({ gateway, patientId, onChanged, onMessage });
+    await Promise.all([intakePanels.load(), evolutionView.load(), photosView.load(), documentsView.load()]);
   }
 
   function renderTimeline(patient) {
     if (!patient.timeline?.length) {
-      return emptyState({ title: 'Sem evolução registrada', description: 'A timeline será preenchida conforme atendimentos e eventos clínicos forem registrados.' });
+      return emptyState({ title: 'Sem evolução registrada', description: 'A timeline será preenchida conforme atendimentos, sessões e desfechos forem registrados.' });
     }
     return `<div class="workspace-timeline">${patient.timeline.map((item, index) => `<article class="workspace-timeline-item">
       <span class="timeline-dot" aria-hidden="true"></span>
@@ -48,7 +51,7 @@ export function createPatientWorkspaceView({ gateway, onBack, onChanged, onMessa
       : '';
     const pending = patient.pendingItems?.length
       ? `<ul class="pending-list">${patient.pendingItems.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
-      : '<p class="muted">Sem pendências clínicas no fixture atual.</p>';
+      : '<p class="muted">Sem pendências registradas automaticamente. A avaliação permanece responsabilidade profissional.</p>';
 
     return `<div class="workspace-panel-grid">
       <section class="workspace-main-column">
@@ -68,15 +71,17 @@ export function createPatientWorkspaceView({ gateway, onBack, onChanged, onMessa
   }
 
   function anamnesis() {
-    return intakePanels?.anamnesis() || emptyState({ title: 'Anamnese indisponível', description: 'Selecione novamente o paciente para carregar o contexto local.' });
+    return intakePanels?.anamnesis() || emptyState({ title: 'Anamnese indisponível', description: 'Selecione novamente o paciente para carregar o prontuário.' });
   }
 
   function protocols(patient) {
-    return `<section class="card workspace-detail-card"><span class="eyebrow">PROTOCOLOS</span><h2>Protocolo em uso</h2><div class="workspace-feature-value">${escapeHtml(patient.currentProtocol || 'Sem protocolo associado')}</div><p>O vínculo final será feito por versão imutável do protocolo no backend clínico, preservando o histórico.</p></section>`;
+    return `<section class="card workspace-detail-card"><span class="eyebrow">PROTOCOLOS</span><h2>Protocolo em uso</h2><div class="workspace-feature-value">${escapeHtml(patient.currentProtocol || 'Sem protocolo associado')}</div><p>Os vínculos de sessão usam versões imutáveis de protocolo para preservar o histórico clínico.</p></section>`;
   }
 
   function sessions(patient) {
-    return `<div class="grid workspace-session-grid"><section class="card workspace-detail-card"><span class="eyebrow">SESSÕES</span><h2>Sessões do paciente</h2><p>Última registrada no estado de interface:</p><div class="workspace-feature-value">${escapeHtml(patient.lastSession || 'Nenhuma')}</div></section><section class="card workspace-detail-card"><span class="eyebrow">RETORNO</span><h2>Próximo atendimento</h2><div class="workspace-feature-value">${escapeHtml(patient.nextSession || 'Sem retorno agendado')}</div><p>Planejamento e aplicação continuarão separados quando esta tela for ligada aos contratos reais.</p></section></div>`;
+    const sessions = patient.workspace?.sessions || [];
+    if (!sessions.length) return emptyState({ title: 'Nenhuma sessão registrada', description: 'Sessões de fotobiomodulação vinculadas a este paciente aparecerão aqui.' });
+    return `<div class="evolution-list">${sessions.map((session) => `<article class="card workspace-detail-card"><div class="section-head"><div><span class="eyebrow">SESSÃO</span><h2>${escapeHtml(session.protocolTitle || 'Sessão de fotobiomodulação')}</h2></div>${statusBadge(session.status || 'registrada', 'info')}</div><div class="muted">${escapeHtml(session.startedAt || '—')}</div>${session.professionalAdjustmentReason ? `<p>Ajuste profissional: ${escapeHtml(session.professionalAdjustmentReason)}</p>` : ''}</article>`).join('')}</div>`;
   }
 
   function evolution() {
@@ -84,15 +89,15 @@ export function createPatientWorkspaceView({ gateway, onBack, onChanged, onMessa
   }
 
   function photos() {
-    return photosView?.render() || emptyState({ title: 'Fotos indisponíveis', description: 'Selecione novamente o paciente para carregar as fotos locais.' });
+    return photosView?.render() || emptyState({ title: 'Fotos indisponíveis', description: 'Selecione novamente o paciente para carregar as fotos clínicas.' });
   }
 
   function documents() {
-    return emptyState({ title: 'Nenhum documento registrado', description: 'Documentos do paciente aparecerão aqui com metadados e vínculo clínico quando a F1 correspondente for implementada.' });
+    return documentsView?.render() || emptyState({ title: 'Documentos indisponíveis', description: 'Selecione novamente o paciente para carregar documentos.' });
   }
 
   function consents() {
-    return intakePanels?.consents() || emptyState({ title: 'Nenhum consentimento registrado', description: 'Termos e consentimentos serão apresentados com status e histórico sem simular aceite ou assinatura nesta etapa.' });
+    return intakePanels?.consents() || emptyState({ title: 'Nenhum consentimento registrado', description: 'Termos e consentimentos aparecerão aqui com histórico append-only.' });
   }
 
   function activePanel(patient) {
@@ -102,9 +107,7 @@ export function createPatientWorkspaceView({ gateway, onBack, onChanged, onMessa
 
   function render() {
     const patient = local.patient;
-    if (!patient) {
-      return emptyState({ title: 'Paciente não encontrado', description: 'Volte à lista de pacientes e selecione um registro disponível.' });
-    }
+    if (!patient) return emptyState({ title: 'Paciente não encontrado', description: 'Volte à lista de pacientes e selecione um registro disponível.' });
     return `<div class="page-stack patient-workspace" data-patient-workspace>
       <button type="button" class="ghost workspace-back" data-workspace-back>← Voltar para pacientes</button>
       <header class="patient-context-header">
@@ -125,6 +128,7 @@ export function createPatientWorkspaceView({ gateway, onBack, onChanged, onMessa
     intakePanels?.bindActions(root);
     evolutionView?.bindActions(root);
     photosView?.bindActions(root);
+    documentsView?.bindActions(root);
   }
 
   return { render, bindActions, setPatient };
