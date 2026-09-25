@@ -11,27 +11,32 @@
   <link rel="stylesheet" href="/clinical.css">
 </head>
 <body>
-  <header class="app-header">
-    <div class="header-main">
-      <a class="brand" href="/" aria-label="ArtiSys Fotobiomodulação — início">
-        <span class="brand-mark" aria-hidden="true">PBM</span>
-        <span class="brand-copy"><strong>Fotobiomodulação</strong><small>ArtiSys · ambiente clínico local</small></span>
-      </a>
-      <button type="button" class="mobile-nav-toggle" data-mobile-nav-toggle aria-expanded="false" aria-controls="primary-navigation">
-        <span aria-hidden="true">☰</span><span>Menu</span>
-      </button>
-      <nav id="primary-navigation" class="topnav" aria-label="Navegação principal"></nav>
-    </div>
-    <div class="header-context">
-      <div class="phase-context"><span class="phase-dot" aria-hidden="true"></span><span data-phase-badge>Carregando…</span></div>
-      <nav id="secondary-navigation" class="secondary-nav" aria-label="Ferramentas da fundação F0"></nav>
-    </div>
-  </header>
+  <main id="auth-root" class="shell auth-stage" aria-live="polite"></main>
 
-  <main class="shell" id="main-content">
-    <div id="flash" class="flash" role="status" aria-live="polite" hidden></div>
-    <section id="view" aria-live="polite"></section>
-  </main>
+  <div id="app-shell" hidden>
+    <header class="app-header">
+      <div class="header-main">
+        <a class="brand" href="/" aria-label="ArtiSys Fotobiomodulação — início">
+          <span class="brand-mark" aria-hidden="true">PBM</span>
+          <span class="brand-copy"><strong>Fotobiomodulação</strong><small>ArtiSys · ambiente clínico local</small></span>
+        </a>
+        <button type="button" class="mobile-nav-toggle" data-mobile-nav-toggle aria-expanded="false" aria-controls="primary-navigation">
+          <span aria-hidden="true">☰</span><span>Menu</span>
+        </button>
+        <nav id="primary-navigation" class="topnav" aria-label="Navegação principal"></nav>
+      </div>
+      <div class="header-context">
+        <div class="phase-context"><span class="phase-dot" aria-hidden="true"></span><span data-phase-badge>Carregando…</span></div>
+        <nav id="secondary-navigation" class="secondary-nav" aria-label="Ferramentas clínicas"></nav>
+        <div class="account-controls"><span data-auth-user></span><button type="button" class="secondary compact-button" data-logout>Sair</button></div>
+      </div>
+    </header>
+
+    <main class="shell" id="main-content">
+      <div id="flash" class="flash" role="status" aria-live="polite" hidden></div>
+      <section id="view" aria-live="polite"></section>
+    </main>
+  </div>
 
   <script type="module" src="/app.js"></script>
 </body>

@@ -1,17 +1,64 @@
+const UI_ROLE_PERMISSIONS = Object.freeze({
+  admin: Object.freeze([
+    'patients.read', 'patients.write', 'clinical.read', 'clinical.write',
+    'agenda.read', 'agenda.write', 'finance.read', 'finance.write',
+    'protocols.read', 'protocols.write', 'equipment.read', 'equipment.write',
+    'audit.read', 'accounts.manage', 'backup.manage'
+  ]),
+  professional: Object.freeze([
+    'patients.read', 'patients.write', 'clinical.read', 'clinical.write',
+    'agenda.read', 'agenda.write', 'protocols.read', 'protocols.write', 'equipment.read'
+  ]),
+  reception: Object.freeze([
+    'patients.read', 'patients.write', 'agenda.read', 'agenda.write', 'finance.read', 'finance.write'
+  ])
+});
+
 export const PRIMARY_NAV_ITEMS = Object.freeze([
-  { id: 'dashboard', label: 'Dashboard', icon: 'grid' },
-  { id: 'patients', label: 'Pacientes', icon: 'users' },
-  { id: 'agenda', label: 'Agenda', icon: 'calendar' },
-  { id: 'protocols', label: 'Protocolos', icon: 'library' },
-  { id: 'equipment', label: 'Equipamentos', icon: 'device' },
-  { id: 'reports', label: 'Relatórios', icon: 'report' },
-  { id: 'settings', label: 'Configurações', icon: 'settings' }
+  { id: 'dashboard', label: 'Dashboard', icon: 'grid', permission: null },
+  { id: 'patients', label: 'Pacientes', icon: 'users', permission: 'patients.read' },
+  { id: 'agenda', label: 'Agenda', icon: 'calendar', permission: 'agenda.read' },
+  { id: 'protocols', label: 'Protocolos', icon: 'library', permission: 'protocols.read' },
+  { id: 'equipment', label: 'Equipamentos', icon: 'device', permission: 'equipment.read' },
+  { id: 'reports', label: 'Relatórios', icon: 'report', permission: 'finance.read' },
+  { id: 'settings', label: 'Configurações', icon: 'settings', permission: 'accounts.manage' }
 ]);
 
 export const SECONDARY_NAV_ITEMS = Object.freeze([
-  { id: 'sessions', label: 'Sessões F0' },
-  { id: 'audit', label: 'Auditoria' }
+  { id: 'sessions', label: 'Sessões', permission: 'clinical.read' },
+  { id: 'audit', label: 'Auditoria', permission: 'audit.read' }
 ]);
+
+const ROUTE_PERMISSIONS = Object.freeze({
+  dashboard: null,
+  patients: 'patients.read',
+  'patient-workspace': 'clinical.read',
+  agenda: 'agenda.read',
+  protocols: 'protocols.read',
+  equipment: 'equipment.read',
+  reports: 'finance.read',
+  settings: 'accounts.manage',
+  sessions: 'clinical.read',
+  audit: 'audit.read'
+});
+
+export function hasUiPermission(role, permission) {
+  if (!permission) return Boolean(role);
+  return (UI_ROLE_PERMISSIONS[String(role || '')] || []).includes(permission);
+}
+
+export function canAccessRoute(role, route) {
+  if (!Object.hasOwn(ROUTE_PERMISSIONS, route)) return false;
+  return hasUiPermission(role, ROUTE_PERMISSIONS[route]);
+}
+
+export function visiblePrimaryNavigation(role = 'admin') {
+  return PRIMARY_NAV_ITEMS.filter((item) => hasUiPermission(role, item.permission));
+}
+
+export function visibleSecondaryNavigation(role = 'admin') {
+  return SECONDARY_NAV_ITEMS.filter((item) => hasUiPermission(role, item.permission));
+}
 
 function iconMarkup(icon) {
   const paths = {
@@ -27,15 +74,15 @@ function iconMarkup(icon) {
   return `<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 }
 
-export function renderPrimaryNavigation(activeRoute = 'dashboard') {
-  return PRIMARY_NAV_ITEMS.map((item) => `
+export function renderPrimaryNavigation(activeRoute = 'dashboard', role = 'admin') {
+  return visiblePrimaryNavigation(role).map((item) => `
     <button type="button" data-nav="${item.id}" ${activeRoute === item.id ? 'class="is-active" aria-current="page"' : ''}>
       ${iconMarkup(item.icon)}<span class="nav-label">${item.label}</span>
     </button>`).join('');
 }
 
-export function renderSecondaryNavigation(activeRoute = '') {
-  return SECONDARY_NAV_ITEMS.map((item) => `
+export function renderSecondaryNavigation(activeRoute = '', role = 'admin') {
+  return visibleSecondaryNavigation(role).map((item) => `
     <button type="button" data-secondary-nav="${item.id}" ${activeRoute === item.id ? 'class="is-active" aria-current="page"' : ''}>${item.label}</button>`).join('');
 }
 

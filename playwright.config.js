@@ -8,14 +8,16 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   reporter: [['list']],
+  globalSetup: './test/e2e/global-setup.js',
   use: {
     baseURL: 'http://127.0.0.1:8788',
     headless: true,
-    trace: 'retain-on-failure'
+    trace: 'retain-on-failure',
+    storageState: '.tmp/e2e-admin-storage.json'
   },
   webServer: {
     command: 'node scripts/e2e-server.js',
-    url: 'http://127.0.0.1:8788/api/status',
+    url: 'http://127.0.0.1:8788/api/auth/status',
     reuseExistingServer: false,
     timeout: 15_000
   }
