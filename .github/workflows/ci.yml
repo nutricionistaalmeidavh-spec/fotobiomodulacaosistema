@@ -24,6 +24,12 @@ jobs:
         run: npm run test:unit
       - name: T1-T5 auth and RBAC E2E
         run: npx playwright test test/e2e/auth-rbac-main.spec.js
+      - name: T6-T10 integration E2E
+        run: >-
+          npx playwright test
+          test/e2e/patient-clinical-workspace-integrated.spec.js
+          test/e2e/reception-patient-access.spec.js
+          test/e2e/protocols-evidence-search-integrated.spec.js
       - name: Smoke
         run: npm run smoke
       - name: Browser E2E
