@@ -24,6 +24,12 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function dataUrlPayload(dataUrl) {
+  const match = String(dataUrl || '').match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) throw new Error('Não foi possível preparar a imagem para armazenamento local.');
+  return { mimeType: match[1], dataBase64: match[2] };
+}
+
 export function createPhotosView({ gateway, patientId, onChanged, onMessage }) {
   const local = { records: [] };
 
@@ -32,46 +38,35 @@ export function createPhotosView({ gateway, patientId, onChanged, onMessage }) {
   }
 
   function photoCard(photo) {
-    const sourceText = photo.source === 'persisted' ? 'Persistido' : 'Somente local · não persistido';
-    const sourceTone = photo.source === 'persisted' ? 'success' : 'warning';
-    const preview = photo.previewDataUrl
-      ? `<img class="photo-preview" src="${escapeHtml(photo.previewDataUrl)}" alt="Foto clínica local — ${escapeHtml(photo.region)}">`
-      : '<div class="photo-preview-placeholder" aria-label="Sem pré-visualização local">Sem pré-visualização</div>';
     return `<article class="card photo-card" data-photo-record="${escapeHtml(photo.id)}">
-      ${preview}
-      <div class="section-head"><div><span class="eyebrow">FOTO CLÍNICA</span><h3>${escapeHtml(photo.region)}</h3></div>${statusBadge(sourceText, sourceTone)}</div>
+      <div class="photo-preview-placeholder" aria-label="Imagem armazenada localmente">Imagem clínica armazenada</div>
+      <div class="section-head"><div><span class="eyebrow">FOTO CLÍNICA</span><h3>${escapeHtml(photo.region)}</h3></div>${statusBadge('Persistido', 'success')}</div>
       <p>${escapeHtml(photo.observation || 'Sem observação adicional.')}</p>
-      <div class="muted">${escapeHtml(photo.capturedDate || '—')}${photo.sessionId ? ` · Sessão ${escapeHtml(photo.sessionId)}` : ''}</div>
-      ${photo.source === 'persisted' ? '' : '<p class="module-note">Pré-visualização local · não enviada ao backend.</p>'}
-      ${photo.source === 'persisted' ? '' : `<div class="actions"><button type="button" class="secondary" aria-label="Remover foto ${escapeHtml(photo.region)}" data-remove-photo="${escapeHtml(photo.id)}">Remover foto local</button></div>`}
+      <div class="muted">${escapeHtml(photo.capturedDate || '—')}${photo.byteSize ? ` · ${escapeHtml(String(photo.byteSize))} bytes` : ''}</div>
+      <p class="module-note">Arquivo local com metadados de integridade${photo.sha256 ? ` · SHA-256 ${escapeHtml(photo.sha256.slice(0, 12))}…` : ''}.</p>
     </article>`;
   }
 
   function gallery() {
-    if (!local.records.length) {
-      return emptyState({
-        title: 'Nenhuma foto registrada',
-        description: 'Adicione uma imagem para pré-visualização local. Nesta fase, nenhum arquivo é enviado ou persistido no backend.'
-      });
-    }
+    if (!local.records.length) return emptyState({ title: 'Nenhuma foto registrada', description: 'Adicione uma imagem clínica; o arquivo será armazenado localmente com metadados de integridade.' });
     return `<div class="photo-grid">${local.records.map(photoCard).join('')}</div>`;
   }
 
   function render() {
     return `<div class="page-stack photos-workspace" data-photos-view>
       <section class="card">
-        <div class="section-head"><div><span class="eyebrow">FOTOS</span><h2>Adicionar foto clínica local</h2></div><span class="status-badge status-warning">Somente local · não persistido</span></div>
-        <p class="muted">A imagem permanece apenas na memória desta sessão do navegador. Não há upload externo nem armazenamento durável nesta fase.</p>
+        <div class="section-head"><div><span class="eyebrow">FOTOS</span><h2>Adicionar foto clínica</h2></div>${statusBadge('Armazenamento local', 'success')}</div>
+        <p class="muted">A imagem é armazenada no diretório clínico local do sistema; nenhum upload externo é realizado.</p>
         <label>Arquivo da foto<input type="file" accept="image/*" name="photo-file"></label>
         <div class="form-grid">
           <label>Região fotografada<input name="photo-region" placeholder="Ex.: Ombro direito"></label>
           <label>Data da foto<input name="photo-date" type="date" value="${todayIso()}"></label>
         </div>
         <label>Observação da foto<textarea name="photo-observation" rows="3" placeholder="Ex.: Vista anterior"></textarea></label>
-        <div class="module-note">Formatos de imagem do navegador, até 5 MiB. Pré-visualização local não equivale a upload ou persistência clínica.</div>
-        <div class="actions"><button type="button" class="primary" data-add-photo>Adicionar foto local</button></div>
+        <div class="module-note">Imagens até 5 MiB. O sistema valida formato, tamanho e registra hash de integridade.</div>
+        <div class="actions"><button type="button" class="primary" data-add-photo>Enviar foto</button></div>
       </section>
-      <section aria-label="Fotos clínicas locais">${gallery()}</section>
+      <section aria-label="Fotos clínicas">${gallery()}</section>
     </div>`;
   }
 
@@ -79,33 +74,23 @@ export function createPhotosView({ gateway, patientId, onChanged, onMessage }) {
     root.querySelector('[data-add-photo]')?.addEventListener('click', async () => {
       try {
         const file = root.querySelector('[name="photo-file"]')?.files?.[0];
-        const previewDataUrl = await readLocalPhoto(file);
+        const dataUrl = await readLocalPhoto(file);
+        const encoded = dataUrlPayload(dataUrl);
         await gateway.addPhotoMetadata(patientId, {
           capturedDate: root.querySelector('[name="photo-date"]')?.value ?? '',
           region: root.querySelector('[name="photo-region"]')?.value ?? '',
           observation: root.querySelector('[name="photo-observation"]')?.value ?? '',
-          previewDataUrl
+          originalFilename: file.name,
+          mimeType: encoded.mimeType,
+          dataBase64: encoded.dataBase64
         });
         await load();
-        onMessage?.('Foto adicionada somente à memória local; nenhum arquivo foi enviado ao backend.', 'success');
+        onMessage?.('Foto clínica armazenada localmente com integridade registrada.', 'success');
         onChanged?.();
       } catch (error) {
         onMessage?.(error.message);
       }
     });
-
-    root.querySelectorAll('[data-remove-photo]').forEach((button) => button.addEventListener('click', async () => {
-      const photoId = button.dataset.removePhoto;
-      if (!window.confirm('Remover esta foto do estado local?')) return;
-      try {
-        await gateway.removePhotoMetadata(patientId, photoId);
-        await load();
-        onMessage?.('Foto removida do estado local.', 'success');
-        onChanged?.();
-      } catch (error) {
-        onMessage?.(error.message);
-      }
-    }));
   }
 
   return { load, render, bindActions };
