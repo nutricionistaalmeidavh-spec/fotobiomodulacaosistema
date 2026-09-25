@@ -40,13 +40,13 @@ export function createPatientsView({ gateway, onOpenPatient, onChanged, onMessag
     return patients.map((patient) => `<tr data-patient-row data-patient-id="${escapeHtml(patient.id)}">
       <td data-label="Paciente">
         ${clinicalAccess
-          ? `<button type="button" class="row-link" data-open-patient="${escapeHtml(patient.id)}" aria-label="Abrir prontuário de ${escapeHtml(patient.fullName)}">${escapeHtml(patient.fullName)}</button>`
+          ? `<button type="button" class="row-link" data-open-patient="${escapeHtml(patient.id)}">${escapeHtml(patient.fullName)}</button>`
           : `<strong>${escapeHtml(patient.fullName)}</strong>`}
         <div class="muted patient-secondary">${escapeHtml(contact(patient))}</div>
       </td>
       <td data-label="Status">${statusBadge(patient.status === 'active' ? 'Ativo' : 'Inativo', patient.status === 'active' ? 'success' : 'neutral')}</td>
       <td data-label="Observação">${escapeHtml(patient.notes || '—')}</td>
-      <td data-label="Ação"><div class="actions">${clinicalAccess ? `<button type="button" class="secondary compact-button" data-open-patient="${escapeHtml(patient.id)}">Abrir</button>` : ''}<button type="button" class="secondary compact-button" data-edit-patient="${escapeHtml(patient.id)}" aria-label="Editar cadastro de ${escapeHtml(patient.fullName)}">Editar</button></div></td>
+      <td data-label="Ação"><div class="actions">${clinicalAccess ? `<button type="button" class="secondary compact-button" data-open-patient="${escapeHtml(patient.id)}" aria-label="Abrir prontuário de ${escapeHtml(patient.fullName)}">Abrir</button>` : ''}<button type="button" class="secondary compact-button" data-edit-patient="${escapeHtml(patient.id)}" aria-label="Editar cadastro de ${escapeHtml(patient.fullName)}">Editar</button></div></td>
     </tr>`).join('');
   }
 
