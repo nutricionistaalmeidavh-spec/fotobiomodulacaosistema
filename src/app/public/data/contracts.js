@@ -34,6 +34,9 @@ export const CLINICAL_ADAPTER_METHODS = Object.freeze([
   'listDocuments',
   'generateEncounterPdf',
   'listEvidence',
+  'createEvidence',
+  'listProtocolEvidence',
+  'linkEvidenceToProtocolVersion',
   'searchClinicalProtocols',
   'getBodyMapCatalog'
 ]);
