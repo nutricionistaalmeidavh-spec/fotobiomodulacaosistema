@@ -215,6 +215,7 @@ export function createF5Service(db, options = {}) {
         ...workspace,
         outcomes,
         basicOutcomes: outcomes,
+        documents: base.listDocuments(patientId),
         timeline: [...uniqueTimeline.values()]
           .sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))
       };
