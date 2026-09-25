@@ -24,42 +24,54 @@ export function filterPatients(patients, query = '', status = 'all') {
   });
 }
 
-export function createPatientsView({ gateway, onOpenPatient, onChanged, onMessage }) {
-  const local = { patients: [], query: '', status: 'all', dialogOpen: false, error: '' };
+export function createPatientsView({ gateway, onOpenPatient, onChanged, onMessage, canOpenPatient = () => true }) {
+  const local = { patients: [], query: '', status: 'all', dialogOpen: false, error: '', editingPatient: null };
 
   async function load() {
     local.patients = await gateway.listPatients();
   }
 
+  function contact(patient) {
+    return [patient.email, patient.phone].filter(Boolean).join(' · ') || 'Sem contato informado';
+  }
+
   function patientRows(patients) {
-    return patients.map((patient) => `<tr data-patient-row>
+    const clinicalAccess = canOpenPatient();
+    return patients.map((patient) => `<tr data-patient-row data-patient-id="${escapeHtml(patient.id)}">
       <td data-label="Paciente">
-        <button type="button" class="row-link" data-open-patient="${escapeHtml(patient.id)}">${escapeHtml(patient.fullName)}</button>
-        <div class="muted patient-secondary">${escapeHtml(patient.email || patient.phone || 'Sem contato informado')}</div>
+        ${clinicalAccess
+          ? `<button type="button" class="row-link" data-open-patient="${escapeHtml(patient.id)}" aria-label="Abrir prontuário de ${escapeHtml(patient.fullName)}">${escapeHtml(patient.fullName)}</button>`
+          : `<strong>${escapeHtml(patient.fullName)}</strong>`}
+        <div class="muted patient-secondary">${escapeHtml(contact(patient))}</div>
       </td>
       <td data-label="Status">${statusBadge(patient.status === 'active' ? 'Ativo' : 'Inativo', patient.status === 'active' ? 'success' : 'neutral')}</td>
       <td data-label="Observação">${escapeHtml(patient.notes || '—')}</td>
-      <td data-label="Ação"><button type="button" class="secondary compact-button" data-open-patient="${escapeHtml(patient.id)}">Abrir</button></td>
+      <td data-label="Ação"><div class="actions">${clinicalAccess ? `<button type="button" class="secondary compact-button" data-open-patient="${escapeHtml(patient.id)}">Abrir</button>` : ''}<button type="button" class="secondary compact-button" data-edit-patient="${escapeHtml(patient.id)}" aria-label="Editar cadastro de ${escapeHtml(patient.fullName)}">Editar</button></div></td>
     </tr>`).join('');
   }
 
   function createDialog() {
     if (!local.dialogOpen) return '';
+    const patient = local.editingPatient || {};
+    const editing = Boolean(local.editingPatient);
     const body = `<form data-patient-form novalidate>
       <label for="patient-name">Nome <span aria-hidden="true">*</span>
-        <input id="patient-name" name="patient-name" autocomplete="name" aria-required="true" aria-invalid="${local.error ? 'true' : 'false'}">
+        <input id="patient-name" name="patient-name" autocomplete="name" aria-required="true" aria-invalid="${local.error ? 'true' : 'false'}" value="${escapeHtml(patient.fullName || '')}">
         ${fieldMessage(local.error)}
       </label>
       <div class="form-grid">
-        <label for="patient-email">E-mail<input id="patient-email" name="patient-email" type="email" autocomplete="email"></label>
-        <label for="patient-phone">Telefone<input id="patient-phone" name="patient-phone" autocomplete="tel"></label>
+        <label for="patient-email">E-mail<input id="patient-email" name="patient-email" type="email" autocomplete="email" value="${escapeHtml(patient.email || '')}"></label>
+        <label for="patient-phone">Telefone<input id="patient-phone" name="patient-phone" autocomplete="tel" value="${escapeHtml(patient.phone || '')}"></label>
+        <label for="patient-birth-date">Nascimento<input id="patient-birth-date" name="patient-birth-date" type="date" value="${escapeHtml(patient.birthDate || '')}"></label>
+        <label for="patient-document">Documento<input id="patient-document" name="patient-document" value="${escapeHtml(patient.documentNumber || '')}"></label>
+        <label for="patient-emergency">Contato de emergência<input id="patient-emergency" name="patient-emergency" value="${escapeHtml(patient.emergencyContact || '')}"></label>
       </div>
-      <label for="patient-notes">Observações<textarea id="patient-notes" name="patient-notes" placeholder="Notas administrativas ou contexto inicial"></textarea></label>
+      <label for="patient-notes">Observações<textarea id="patient-notes" name="patient-notes" placeholder="Notas administrativas ou contexto inicial">${escapeHtml(patient.notes || '')}</textarea></label>
     </form>`;
-    const footer = `<button type="button" class="secondary" data-patient-cancel>Cancelar</button><button type="button" class="primary" data-patient-save>Salvar paciente</button>`;
+    const footer = `<button type="button" class="secondary" data-patient-cancel>Cancelar</button><button type="button" class="primary" data-patient-save>${editing ? 'Salvar alterações' : 'Salvar paciente'}</button>`;
     return dialogFrame({
-      title: 'Novo paciente',
-      description: 'Cadastro local de interface. Ainda não persiste no backend clínico.',
+      title: editing ? 'Editar paciente' : 'Novo paciente',
+      description: editing ? 'Atualize os dados demográficos e administrativos do cadastro.' : 'O cadastro é persistido localmente no banco clínico.',
       body,
       footer,
       testId: 'patient-create-dialog'
@@ -71,16 +83,11 @@ export function createPatientsView({ gateway, onOpenPatient, onChanged, onMessag
     const patients = filterPatients(allPatients, local.query, local.status);
     const content = patients.length
       ? `<div class="table-wrap patient-table-wrap"><table class="patient-table"><thead><tr><th>Paciente</th><th>Status</th><th>Observação</th><th>Ação</th></tr></thead><tbody>${patientRows(patients)}</tbody></table></div>`
-      : emptyState({
-          title: 'Nenhum paciente encontrado',
-          description: 'Ajuste os filtros ou limpe a busca para visualizar novamente os pacientes.',
-          actionLabel: 'Limpar busca',
-          action: 'data-clear-patient-search'
-        });
+      : emptyState({ title: 'Nenhum paciente encontrado', description: 'Ajuste os filtros ou limpe a busca para visualizar novamente os pacientes.', actionLabel: 'Limpar busca', action: 'data-clear-patient-search' });
 
     return `<div class="page-stack" data-patients-view>
       <div class="page-heading">
-        <div><span class="eyebrow">PACIENTES</span><h1>Pacientes</h1><p>Busca, cadastro local e acesso ao contexto clínico através da camada de dados preparada para backend.</p></div>
+        <div><span class="eyebrow">PACIENTES</span><h1>Pacientes</h1><p>Cadastro administrativo persistido. O acesso ao prontuário clínico depende da permissão do perfil.</p></div>
         <button type="button" class="primary" data-new-patient>Novo paciente</button>
       </div>
       <section class="card patient-directory">
@@ -95,9 +102,7 @@ export function createPatientsView({ gateway, onOpenPatient, onChanged, onMessag
     </div>`;
   }
 
-  function rerender() {
-    onChanged?.();
-  }
+  function rerender() { onChanged?.(); }
 
   function focusSearch(root, cursor = local.query.length) {
     const nextSearch = root.querySelector('[data-patient-search]');
@@ -111,8 +116,28 @@ export function createPatientsView({ gateway, onOpenPatient, onChanged, onMessag
 
   function closeDialog() {
     local.dialogOpen = false;
+    local.editingPatient = null;
     local.error = '';
     rerender();
+  }
+
+  function openEdit(patientId) {
+    local.editingPatient = local.patients.find((patient) => patient.id === patientId) || null;
+    local.dialogOpen = Boolean(local.editingPatient);
+    local.error = '';
+    rerender();
+  }
+
+  function formPayload(root) {
+    return {
+      fullName: root.querySelector('[name="patient-name"]')?.value ?? '',
+      email: root.querySelector('[name="patient-email"]')?.value ?? '',
+      phone: root.querySelector('[name="patient-phone"]')?.value ?? '',
+      birthDate: root.querySelector('[name="patient-birth-date"]')?.value ?? '',
+      documentNumber: root.querySelector('[name="patient-document"]')?.value ?? '',
+      emergencyContact: root.querySelector('[name="patient-emergency"]')?.value ?? '',
+      notes: root.querySelector('[name="patient-notes"]')?.value ?? ''
+    };
   }
 
   function bindActions(root = document) {
@@ -122,51 +147,31 @@ export function createPatientsView({ gateway, onOpenPatient, onChanged, onMessag
       rerender();
       focusSearch(root, cursor);
     });
-    root.querySelector('[data-patient-status]')?.addEventListener('change', (event) => {
-      local.status = event.currentTarget.value;
-      rerender();
-    });
-    root.querySelector('[data-clear-patient-search]')?.addEventListener('click', () => {
-      local.query = '';
-      local.status = 'all';
-      rerender();
-      focusSearch(root, 0);
-    });
-    root.querySelector('[data-new-patient]')?.addEventListener('click', () => {
-      local.dialogOpen = true;
-      local.error = '';
-      rerender();
-      root.querySelector('[name="patient-name"]')?.focus();
-    });
-    root.querySelectorAll('[data-open-patient]').forEach((button) => button.addEventListener('click', () => {
-      onOpenPatient?.(button.dataset.openPatient);
-    }));
+    root.querySelector('[data-patient-status]')?.addEventListener('change', (event) => { local.status = event.currentTarget.value; rerender(); });
+    root.querySelector('[data-clear-patient-search]')?.addEventListener('click', () => { local.query = ''; local.status = 'all'; rerender(); focusSearch(root, 0); });
+    root.querySelector('[data-new-patient]')?.addEventListener('click', () => { local.dialogOpen = true; local.editingPatient = null; local.error = ''; rerender(); });
+    root.querySelectorAll('[data-open-patient]').forEach((button) => button.addEventListener('click', () => onOpenPatient?.(button.dataset.openPatient)));
+    root.querySelectorAll('[data-edit-patient]').forEach((button) => button.addEventListener('click', () => openEdit(button.dataset.editPatient)));
     root.querySelector('[data-dialog-close]')?.addEventListener('click', closeDialog);
     root.querySelector('[data-patient-cancel]')?.addEventListener('click', closeDialog);
-    root.querySelector('[data-dialog-backdrop]')?.addEventListener('mousedown', (event) => {
-      if (event.target === event.currentTarget) closeDialog();
-    });
+    root.querySelector('[data-dialog-backdrop]')?.addEventListener('mousedown', (event) => { if (event.target === event.currentTarget) closeDialog(); });
     root.querySelector('[data-patient-save]')?.addEventListener('click', async () => {
-      const fullName = root.querySelector('[name="patient-name"]')?.value ?? '';
-      if (!fullName.trim()) {
+      const payload = formPayload(root);
+      if (!payload.fullName.trim()) {
         local.error = 'Informe o nome do paciente.';
         rerender();
-        root.querySelector('[name="patient-name"]')?.focus();
         return;
       }
       try {
-        const created = await gateway.createPatient({
-          fullName,
-          email: root.querySelector('[name="patient-email"]')?.value ?? '',
-          phone: root.querySelector('[name="patient-phone"]')?.value ?? '',
-          notes: root.querySelector('[name="patient-notes"]')?.value ?? ''
-        });
+        const editing = local.editingPatient;
+        const saved = editing ? await gateway.updatePatient(editing.id, payload) : await gateway.createPatient(payload);
         await load();
         local.dialogOpen = false;
+        local.editingPatient = null;
         local.error = '';
         local.query = '';
         local.status = 'all';
-        onMessage?.(`Paciente ${created.fullName} adicionado somente ao ambiente de interface.`, 'success');
+        onMessage?.(editing ? `Cadastro de ${saved.fullName} atualizado.` : `Paciente ${saved.fullName} cadastrado.`, 'success');
         rerender();
       } catch (error) {
         local.error = error.message;
