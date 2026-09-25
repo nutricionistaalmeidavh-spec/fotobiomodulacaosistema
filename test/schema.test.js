@@ -6,13 +6,58 @@ const requiredTables = [
   'professionals','patients','conditions','assessments','encounters','protocols',
   'protocol_versions','protocol_indications','protocol_contraindications','equipment',
   'applicators','treatment_sessions','application_points','outcomes','clinical_media',
-  'consents','documents','audit_events'
+  'consents','documents','audit_events','auth_accounts','auth_sessions'
 ];
 
-test('F0 schema creates every core clinical table', () => {
+test('F1 schema creates every core clinical and local auth table', () => {
   const db = openDatabase(':memory:');
   const tables = listTables(db);
   for (const name of requiredTables) assert.ok(tables.includes(name), `missing table: ${name}`);
+});
+
+test('patients support non-destructive archival fields', () => {
+  const db = openDatabase(':memory:');
+  const columns = db.prepare("PRAGMA table_info('patients')").all().map((row) => row.name);
+  assert.ok(columns.includes('active'));
+  assert.ok(columns.includes('archived_at'));
+});
+
+test('F5 outcomes link the responsible professional and longitudinal grouping metadata', () => {
+  const db = openDatabase(':memory:');
+  const columns = db.prepare("PRAGMA table_info('outcomes')").all().map((row) => row.name);
+  assert.ok(columns.includes('professional_id'));
+  assert.ok(columns.includes('baseline_group'));
+  const indexes = db.prepare("PRAGMA index_list('outcomes')").all().map((row) => row.name);
+  assert.ok(indexes.includes('idx_outcomes_patient_type_time'));
+});
+
+test('F6 schema adds scientific evidence sources and exact protocol-version links', () => {
+  const db = openDatabase(':memory:');
+  const tables = listTables(db);
+  assert.ok(tables.includes('evidence_sources'));
+  assert.ok(tables.includes('protocol_evidence_links'));
+});
+
+test('F8 protocol indications support age and professional-area constraints', () => {
+  const db = openDatabase(':memory:');
+  const columns = db.prepare("PRAGMA table_info('protocol_indications')").all().map((row) => row.name);
+  for (const column of ['min_age_years', 'max_age_years', 'professional_area']) assert.ok(columns.includes(column));
+});
+
+test('F9 schema separates agenda packages usage and payments from clinical records', () => {
+  const db = openDatabase(':memory:');
+  const tables = listTables(db);
+  for (const name of ['appointments', 'treatment_packages', 'package_usages', 'payments']) {
+    assert.ok(tables.includes(name), `missing F9 table: ${name}`);
+  }
+});
+
+test('F10 schema adds clinic and effective role memberships', () => {
+  const db = openDatabase(':memory:');
+  const tables = listTables(db);
+  assert.ok(tables.includes('clinics'));
+  assert.ok(tables.includes('clinic_memberships'));
+  assert.equal(db.prepare("SELECT name FROM clinics WHERE id = 'default-clinic'").get().name, 'Clínica local');
 });
 
 test('protocol versions are immutable after creation', () => {
@@ -30,18 +75,20 @@ test('audit events are append-only', () => {
   assert.throws(() => db.prepare("UPDATE audit_events SET action='update' WHERE id='a1'").run(), /append-only/i);
 });
 
-test('persistent database can be reopened without reapplying the same migration', async () => {
+test('persistent database reopens with canonical migrations applied once and in order', async () => {
   const { mkdtempSync, rmSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
-  const dir = mkdtempSync(join(tmpdir(), 'pbm-f0-'));
+  const dir = mkdtempSync(join(tmpdir(), 'pbm-migrations-'));
   const file = join(dir, 'clinical.sqlite');
   try {
     const first = openDatabase(file);
     first.close();
     const second = openDatabase(file);
-    const migrations = second.prepare('SELECT version FROM schema_migrations ORDER BY version').all();
-    assert.deepEqual(migrations.map((row) => row.version), ['0001_f0']);
+    const migrations = second.prepare('SELECT version FROM schema_migrations ORDER BY version').all().map((row) => row.version);
+    const requiredPrefix = ['0001_f0', '0002_f1', '0003_f2', '0004_f3', '0005_f4', '0006_f5', '0007_f6', '0008_f8', '0009_f9', '0010_f10'];
+    assert.deepEqual(migrations.slice(0, requiredPrefix.length), requiredPrefix);
+    assert.equal(new Set(migrations).size, migrations.length);
     second.close();
   } finally {
     rmSync(dir, { recursive: true, force: true });
