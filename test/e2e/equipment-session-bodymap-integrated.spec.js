@@ -63,8 +63,8 @@ test('F3/F7 UI persists equipment adaptation, selected session equipment and bod
   await expect(page.getByRole('heading', { name: 'Atendimento guiado e rastreável', exact: true })).toBeVisible();
   await page.getByLabel('Atendimento aberto').selectOption(encounter.id);
   await page.getByLabel('Versão do protocolo').selectOption(protocolVersion.id);
-  await page.getByLabel('Equipamento').selectOption({ label: `${manufacturer} ${model}` });
-  await page.getByLabel('Aplicador').selectOption({ label: applicatorName });
+  await page.getByRole('combobox', { name: 'Equipamento', exact: true }).selectOption({ label: `${manufacturer} ${model}` });
+  await page.getByRole('combobox', { name: 'Aplicador', exact: true }).selectOption({ label: applicatorName });
 
   await page.getByRole('button', { name: 'Pré-visualizar adaptação' }).click();
   await expect(page.locator('[data-adaptation-preview]')).toContainText(/Selecione explicitamente a potência/i);
