@@ -105,7 +105,8 @@ test('F3/F7 UI persists equipment adaptation, selected session equipment and bod
   const pointsPayload = await (await page.request.get(`/api/patients/${patient.id}/body-map-points`)).json();
   const point = pointsPayload.points.find((item) => item.treatmentSessionId === createdSession.id);
   expect(point).toBeTruthy();
-  expect(point.regionId).toBe('shoulder');
+  expect(point.coordinates.regionId).toBe('shoulder');
+  expect(point.bodyRegion).toBe('Ombro');
   expect(point.anatomicalLabel).toBe('Ombro direito anterior');
 
   await page.reload();
