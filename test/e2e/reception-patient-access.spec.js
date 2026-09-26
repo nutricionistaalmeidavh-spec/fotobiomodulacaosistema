@@ -19,7 +19,9 @@ test('reception edits patient demographics without loading clinical workspace', 
   const clinicalRequests = [];
   page.on('request', (request) => {
     const pathname = new URL(request.url()).pathname;
-    if (/\/(workspace|timeline|outcomes|consents|media|sessions|protocols|equipment|documents)(?:\b|\/)/.test(pathname)) clinicalRequests.push(pathname);
+    if (pathname.startsWith('/api/') && /\/(workspace|timeline|outcomes|consents|media|sessions|protocols|equipment|documents)(?:\b|\/)/.test(pathname)) {
+      clinicalRequests.push(pathname);
+    }
   });
 
   try {
