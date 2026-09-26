@@ -6,8 +6,15 @@ export const F0_ADAPTER_METHODS = Object.freeze([
   'createProtocol',
   'createProtocolVersion',
   'listEquipment',
+  'createEquipment',
+  'updateEquipment',
+  'createApplicator',
+  'adaptProtocolVersion',
+  'listOpenEncounters',
   'listSessions',
   'createSession',
+  'recordBodyMapPoint',
+  'listPatientBodyMapPoints',
   'getAuditState'
 ]);
 
