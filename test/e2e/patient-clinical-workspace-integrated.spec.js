@@ -47,7 +47,7 @@ test('patient clinical workspace persists F1/F4/F5 records through reload', asyn
   await page.getByLabel('Valor').fill('6');
   await page.getByLabel('Narrativa').fill('Linha de base antes do ciclo.');
   await page.getByRole('button', { name: 'Registrar evolução' }).click();
-  await expect(page.getByText(/VAS dor/i).first()).toBeVisible();
+  await expect(page.getByText('Linha de base antes do ciclo.', { exact: true })).toBeVisible();
 
   await page.getByRole('tab', { name: 'Fotos' }).click();
   await page.getByLabel('Arquivo da foto').setInputFiles({
