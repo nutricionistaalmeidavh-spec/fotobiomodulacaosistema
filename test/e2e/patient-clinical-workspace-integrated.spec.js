@@ -33,7 +33,7 @@ test('patient clinical workspace persists F1/F4/F5 records through reload', asyn
   await page.getByLabel('Histórico clínico').fill('Sintomas há três semanas.');
   await page.getByLabel('Medicações informadas').fill('Nenhuma');
   await page.getByLabel('Alergias').fill('Sem alergias conhecidas');
-  await page.getByLabel('Precauções').fill('Reavaliar sensibilidade local');
+  await page.getByRole('textbox', { name: 'Precauções', exact: true }).fill('Reavaliar sensibilidade local');
   await page.getByLabel('Dor (0–10)').fill('6');
   await page.getByRole('button', { name: 'Salvar anamnese' }).click();
   await expect(page.getByText(/Anamnese salva no prontuário/)).toBeVisible();
