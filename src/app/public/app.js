@@ -28,6 +28,9 @@ const state = {
   equipment: [],
   protocols: [],
   sessions: [],
+  openEncounters: [],
+  bodyMapCatalog: [],
+  bodyMapPoints: [],
   audit: { valid: true, events: [] },
   selectedProtocolId: null,
   mobileNavOpen: false
@@ -103,6 +106,16 @@ const reportsView = createReportsView({ gateway, onChanged: render, onMessage: s
 const auditView = createAuditView({ gateway, onChanged: render, onMessage: showMessage });
 const f0Views = createF0Views({ state, gateway, showMessage, rerenderFresh });
 
+async function loadSessionBodyMapPoints() {
+  const patientIds = [...new Set(state.sessions.map((session) => session.patientId).filter(Boolean))];
+  if (!patientIds.length) {
+    state.bodyMapPoints = [];
+    return;
+  }
+  const lists = await Promise.all(patientIds.map((patientId) => gateway.listPatientBodyMapPoints(patientId)));
+  state.bodyMapPoints = lists.flat();
+}
+
 async function loadRouteData(route) {
   await loadFoundationStatus();
   if (route === 'dashboard') return dashboardView.load();
@@ -116,10 +129,14 @@ async function loadRouteData(route) {
     return;
   }
   if (route === 'sessions') {
-    [state.protocols, state.sessions] = await Promise.all([
+    [state.protocols, state.sessions, state.equipment, state.openEncounters, state.bodyMapCatalog] = await Promise.all([
       gateway.listProtocols(),
-      gateway.listSessions()
+      gateway.listSessions(),
+      gateway.listEquipment(),
+      gateway.listOpenEncounters(),
+      gateway.getBodyMapCatalog()
     ]);
+    await loadSessionBodyMapPoints();
     if (!state.selectedProtocolId || !state.protocols.some((item) => item.id === state.selectedProtocolId)) {
       state.selectedProtocolId = state.protocols[0]?.id ?? null;
     }
