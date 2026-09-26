@@ -31,6 +31,7 @@ jobs:
           test/e2e/reception-patient-access.spec.js
           test/e2e/protocols-evidence-search-integrated.spec.js
           test/e2e/equipment-session-bodymap-integrated.spec.js
+          test/e2e/operations-finance-reports-integrated.spec.js
       - name: Smoke
         run: npm run smoke
       - name: Browser E2E
