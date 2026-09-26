@@ -32,7 +32,7 @@ test('protocol workspace persists structured protocol, evidence link and determi
   await evidenceDialog.getByLabel('Nível de evidência').fill('revisão');
   await evidenceDialog.getByLabel('Resumo').fill('Síntese científica cadastrada localmente.');
   await evidenceDialog.getByRole('button', { name: 'Salvar evidência' }).click();
-  await expect(page.getByText(evidenceTitle, { exact: true })).toBeVisible();
+  await expect(page.locator('[data-evidence-card]').filter({ hasText: evidenceTitle }).first()).toBeVisible();
 
   const protocolCard = page.locator('[data-protocol-card]').filter({ hasText: title });
   await protocolCard.getByRole('button', { name: 'Vincular evidência' }).click();
@@ -57,5 +57,5 @@ test('protocol workspace persists structured protocol, evidence link and determi
   await page.reload();
   await page.locator('[data-nav="protocols"]').click();
   await page.getByRole('tab', { name: 'Evidências' }).click();
-  await expect(page.getByText(evidenceTitle, { exact: true })).toBeVisible();
+  await expect(page.locator('[data-evidence-card]').filter({ hasText: evidenceTitle }).first()).toBeVisible();
 });
