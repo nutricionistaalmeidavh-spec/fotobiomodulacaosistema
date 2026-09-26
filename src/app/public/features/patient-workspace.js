@@ -121,8 +121,14 @@ export function createPatientWorkspaceView({ gateway, onBack, onChanged, onMessa
 
   function bindActions(root = document) {
     root.querySelector('[data-workspace-back]')?.addEventListener('click', () => onBack?.());
-    root.querySelectorAll('[data-workspace-tab]').forEach((button) => button.addEventListener('click', () => {
+    root.querySelectorAll('[data-workspace-tab]').forEach((button) => button.addEventListener('click', async () => {
       local.activeTab = button.dataset.workspaceTab;
+      try {
+        if (local.activeTab === 'documents') await documentsView?.load();
+        if (['summary', 'protocols', 'sessions'].includes(local.activeTab)) local.patient = await gateway.getPatient(local.patientId);
+      } catch (error) {
+        onMessage?.(error.message);
+      }
       onChanged?.();
     }));
     intakePanels?.bindActions(root);
