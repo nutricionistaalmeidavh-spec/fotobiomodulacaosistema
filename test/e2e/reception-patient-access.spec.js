@@ -32,14 +32,15 @@ test('reception edits patient demographics without loading clinical workspace', 
     await expect(dialog).toBeVisible();
     await dialog.getByLabel('Telefone').fill('(16) 98888-1212');
     await dialog.getByRole('button', { name: 'Salvar alterações' }).click();
-    await expect(page.getByText('(16) 98888-1212', { exact: true })).toBeVisible();
+    await expect(row).toContainText('(16) 98888-1212');
 
     await expect(row.getByRole('button', { name: 'Abrir prontuário de Ana Martins' })).toHaveCount(0);
     expect(clinicalRequests).toEqual([]);
 
     await page.reload();
     await page.locator('[data-nav="patients"]').click();
-    await expect(page.getByText('(16) 98888-1212', { exact: true })).toBeVisible();
+    const reloadedRow = page.locator('[data-patient-row]').filter({ hasText: 'Ana Martins' });
+    await expect(reloadedRow).toContainText('(16) 98888-1212');
     expect(clinicalRequests).toEqual([]);
   } finally {
     await context.close();
