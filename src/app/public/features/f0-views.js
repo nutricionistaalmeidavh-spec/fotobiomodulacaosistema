@@ -1,7 +1,7 @@
 import { escapeHtml } from '../ui/primitives.js';
 import { bindDosimetryCalculator, renderDosimetryCalculator } from './dosimetry.js';
-import { renderEquipmentWorkspace } from './equipment-workspace.js';
-import { bindTreatmentWorkflow, renderTreatmentWorkflow } from './treatment-workflow.js';
+import { bindEquipmentWorkspace, renderEquipmentWorkspace } from './equipment-workspace.js';
+import { bindTreatmentWorkflow, renderAdaptationPreview, renderTreatmentWorkflow } from './treatment-workflow.js';
 
 export function createF0Views({ state, gateway, showMessage, rerenderFresh }) {
   function protocolCard(protocol) {
@@ -40,12 +40,52 @@ export function createF0Views({ state, gateway, showMessage, rerenderFresh }) {
   }
 
   function sessions() {
-    return renderTreatmentWorkflow({ protocols: state.protocols, sessions: state.sessions });
+    return renderTreatmentWorkflow({
+      protocols: state.protocols,
+      sessions: state.sessions,
+      equipment: state.equipment,
+      openEncounters: state.openEncounters,
+      bodyMapCatalog: state.bodyMapCatalog,
+      bodyMapPoints: state.bodyMapPoints
+    });
+  }
+
+  function readNumber(root, name) {
+    const value = root.querySelector(`[name="${name}"]`)?.value ?? '';
+    return value === '' ? null : Number(value);
+  }
+
+  function validateBodyMapDraft(root) {
+    const regionId = root.querySelector('[name="body-region"]')?.value || '';
+    if (!regionId) return null;
+    const view = root.querySelector('[name="body-view"]')?.value || '';
+    const laterality = root.querySelector('[name="body-laterality"]')?.value || '';
+    const x = readNumber(root, 'body-x');
+    const y = readNumber(root, 'body-y');
+    const region = state.bodyMapCatalog.find((item) => item.id === regionId);
+    if (!region || !region.views?.includes(view)) throw new Error('A vista selecionada não é válida para a região corporal.');
+    if (!['left', 'right', 'midline', 'bilateral'].includes(laterality)) throw new Error('Selecione uma lateralidade válida.');
+    if (![x, y].every((value) => Number.isFinite(value) && value >= 0 && value <= 1)) throw new Error('As coordenadas do mapa corporal devem ficar entre 0 e 1.');
+    return {
+      sequenceNumber: 1,
+      regionId,
+      view,
+      laterality,
+      x,
+      y,
+      anatomicalLabel: (root.querySelector('[name="body-label"]')?.value || '').trim() || region.label,
+      parameters: { appliedEnergyJ: readNumber(root, 'applied-energy') }
+    };
   }
 
   function bindActions(root = document) {
     bindDosimetryCalculator(root);
-    bindTreatmentWorkflow(root);
+    bindTreatmentWorkflow(root, { equipment: state.equipment });
+    bindEquipmentWorkspace(root, {
+      gateway,
+      onMessage: showMessage,
+      onChanged: () => rerenderFresh()
+    });
 
     root.querySelectorAll('[data-select-protocol]').forEach((button) => button.addEventListener('click', () => {
       state.selectedProtocolId = button.dataset.selectProtocol;
@@ -72,18 +112,53 @@ export function createF0Views({ state, gateway, showMessage, rerenderFresh }) {
       } catch (error) { showMessage(error.message); }
     });
 
+    root.querySelector('[data-preview-adaptation]')?.addEventListener('click', async () => {
+      showMessage('');
+      const protocolVersionId = root.querySelector('[name="session-protocol-version"]')?.value || '';
+      const applicatorId = root.querySelector('[name="session-applicator"]')?.value || '';
+      const selectedPowerMw = readNumber(root, 'selected-power');
+      const target = root.querySelector('[data-adaptation-preview]');
+      if (!protocolVersionId || !applicatorId) {
+        if (target) target.innerHTML = '<div class="field-message field-error">Selecione protocolo, equipamento e aplicador.</div>';
+        return;
+      }
+      try {
+        const adaptation = await gateway.adaptProtocolVersion(protocolVersionId, applicatorId, selectedPowerMw);
+        if (target) target.innerHTML = renderAdaptationPreview(adaptation);
+      } catch (error) {
+        if (target) target.innerHTML = `<div class="field-message field-error">${escapeHtml(error.message)}</div>`;
+      }
+    });
+
     root.querySelector('[data-create-session]')?.addEventListener('click', async () => {
       showMessage('');
+      const encounterId = root.querySelector('[name="session-encounter"]')?.value ?? '';
       const protocolVersionId = root.querySelector('[name="session-protocol-version"]')?.value ?? '';
+      const equipmentId = root.querySelector('[name="session-equipment"]')?.value ?? '';
+      const applicatorId = root.querySelector('[name="session-applicator"]')?.value ?? '';
       const plannedEnergyJ = Number(root.querySelector('[name="planned-energy"]')?.value);
       const appliedEnergyJ = Number(root.querySelector('[name="applied-energy"]')?.value);
       const professionalAdjustmentReason = (root.querySelector('[name="adjustment-reason"]')?.value ?? '').trim();
+      if (!encounterId || !protocolVersionId || !equipmentId || !applicatorId) {
+        showMessage('Selecione atendimento, protocolo, equipamento e aplicador antes de registrar.');
+        return;
+      }
       if (plannedEnergyJ !== appliedEnergyJ && !professionalAdjustmentReason) {
         showMessage('Informe o motivo profissional quando os parâmetros aplicados diferirem dos planejados.');
         return;
       }
       try {
-        await gateway.createSession({ protocolVersionId, plannedEnergyJ, appliedEnergyJ, professionalAdjustmentReason });
+        const point = validateBodyMapDraft(root);
+        const session = await gateway.createSession({
+          encounterId,
+          protocolVersionId,
+          equipmentId,
+          applicatorId,
+          plannedEnergyJ,
+          appliedEnergyJ,
+          professionalAdjustmentReason
+        });
+        if (point) await gateway.recordBodyMapPoint(session.id, point);
         await rerenderFresh('Sessão registrada com parâmetros planejados e aplicados separados.');
       } catch (error) { showMessage(error.message); }
     });
