@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { createF2Service } from './f2-service.js';
 import { adaptProtocolToApplicator } from '../domain/equipment-adaptation.js';
+import { buildTreatmentSession } from '../domain/treatment-sessions.js';
 import { buildAuditEvent } from '../core/audit.js';
 import { SEED_IDS } from './seed.js';
 
@@ -176,6 +177,65 @@ export function createF3Service(db) {
         applicators: db.prepare('SELECT * FROM applicators WHERE equipment_id = ? ORDER BY active DESC, name')
           .all(row.id).map(mapApplicator)
       }));
+    },
+
+    createTreatmentSession(input = {}, actorId = SEED_IDS.professional) {
+      const encounterId = input.encounterId ?? SEED_IDS.encounter;
+      const protocolVersionId = input.protocolVersionId;
+      const equipmentId = String(input.equipmentId ?? SEED_IDS.equipment).trim();
+      const applicatorId = String(input.applicatorId ?? SEED_IDS.applicator).trim();
+      const professionalAdjustmentReason = String(input.professionalAdjustmentReason ?? '').trim();
+
+      const version = db.prepare('SELECT id, protocol_id FROM protocol_versions WHERE id = ?').get(protocolVersionId);
+      if (!version) throw new Error('Protocol version not found');
+      const encounter = db.prepare('SELECT * FROM encounters WHERE id = ?').get(encounterId);
+      if (!encounter) throw new Error('Encounter not found');
+      if (encounter.status !== 'open') throw new Error('Treatment sessions require an open encounter');
+      const equipment = db.prepare('SELECT id FROM equipment WHERE id = ? AND active = 1').get(equipmentId);
+      if (!equipment) throw new Error('Selected equipment not found or inactive');
+      const applicator = db.prepare('SELECT id, equipment_id FROM applicators WHERE id = ? AND active = 1').get(applicatorId);
+      if (!applicator) throw new Error('Selected applicator not found or inactive');
+      if (applicator.equipment_id !== equipmentId) throw new Error('Selected applicator does not belong to the selected equipment');
+
+      const planned = Number(input.plannedEnergyJ);
+      const applied = Number(input.appliedEnergyJ);
+      if (!Number.isFinite(planned) || planned <= 0) throw new Error('Planned energy must be greater than zero');
+      if (!Number.isFinite(applied) || applied <= 0) throw new Error('Applied energy must be greater than zero');
+
+      const session = buildTreatmentSession({
+        id: randomUUID(), encounterId, performedBy: actorId,
+        protocolVersionId, equipmentId, applicatorId,
+        plannedParameters: { energyJ: planned }, appliedParameters: { energyJ: applied },
+        professionalAdjustmentReason, status: 'completed'
+      });
+      const now = new Date().toISOString();
+      db.exec('BEGIN IMMEDIATE;');
+      try {
+        db.prepare(`
+          INSERT INTO treatment_sessions(
+            id, encounter_id, protocol_id, protocol_version_id, equipment_id, applicator_id, performed_by,
+            planned_parameters_json, applied_parameters_json, professional_adjustment_reason,
+            started_at, completed_at, status
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(session.id, session.encounterId, version.protocol_id, session.protocolVersionId,
+          session.equipmentId, session.applicatorId, session.performedBy,
+          JSON.stringify(session.plannedParameters), JSON.stringify(session.appliedParameters),
+          session.professionalAdjustmentReason, now, now, session.status);
+        appendAudit(db, base, {
+          action: 'treatment_session.created', entityType: 'treatment_session', entityId: session.id, actorId,
+          payload: {
+            encounterId, protocolId: version.protocol_id, protocolVersionId,
+            equipmentId, applicatorId,
+            plannedParameters: session.plannedParameters, appliedParameters: session.appliedParameters,
+            professionalAdjustmentReason: session.professionalAdjustmentReason
+          }
+        });
+        db.exec('COMMIT;');
+      } catch (error) {
+        db.exec('ROLLBACK;');
+        throw error;
+      }
+      return service.listSessions().find((item) => item.id === session.id);
     },
 
     adaptProtocolVersion(protocolVersionId, applicatorId, selectedPowerMw = null, actorId = SEED_IDS.professional) {
