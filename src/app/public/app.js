@@ -18,6 +18,7 @@ import { createAgendaView } from './features/agenda.js';
 import { createReportsView } from './features/reports.js';
 import { createAuditView } from './features/audit.js';
 import { createPlannedRoutesView } from './features/planned-routes.js';
+import { createProtocolWorkspace } from './features/protocol-workspace.js';
 import { createF0Views } from './features/f0-views.js';
 
 const state = {
@@ -97,6 +98,7 @@ const agendaView = createAgendaView({
   onChanged: render,
   onMessage: showMessage
 });
+const protocolWorkspaceView = createProtocolWorkspace({ gateway, onChanged: render, onMessage: showMessage });
 const reportsView = createReportsView({ gateway, onChanged: render, onMessage: showMessage });
 const auditView = createAuditView({ gateway, onChanged: render, onMessage: showMessage });
 const f0Views = createF0Views({ state, gateway, showMessage, rerenderFresh });
@@ -108,13 +110,7 @@ async function loadRouteData(route) {
   if (route === 'agenda') return agendaView.load();
   if (route === 'reports') return reportsView.load();
   if (route === 'audit') return auditView.load();
-  if (route === 'protocols') {
-    state.protocols = await gateway.listProtocols();
-    if (!state.selectedProtocolId || !state.protocols.some((item) => item.id === state.selectedProtocolId)) {
-      state.selectedProtocolId = state.protocols[0]?.id ?? null;
-    }
-    return;
-  }
+  if (route === 'protocols') return protocolWorkspaceView.load();
   if (route === 'equipment') {
     state.equipment = await gateway.listEquipment();
     return;
@@ -165,6 +161,7 @@ function render() {
     patients: patientsView.render,
     'patient-workspace': patientWorkspaceView.render,
     ...f0Views.templates,
+    protocols: protocolWorkspaceView.render,
     agenda: agendaView.render,
     reports: reportsView.render,
     audit: auditView.render,
@@ -176,6 +173,7 @@ function render() {
   patientsView.bindActions(view);
   patientWorkspaceView.bindActions(view);
   agendaView.bindActions(view);
+  protocolWorkspaceView.bindActions(view);
   reportsView.bindActions(view);
   auditView.bindActions(view);
   f0Views.bindActions(view);
