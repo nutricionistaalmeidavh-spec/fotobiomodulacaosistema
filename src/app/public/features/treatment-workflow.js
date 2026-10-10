@@ -112,7 +112,7 @@ export function renderTreatmentWorkflow({ protocols = [], sessions = [], equipme
 
     <section class="card treatment-stage-panel" data-treatment-panel="safety" hidden>
       <div class="section-head"><div><span class="eyebrow">2 · SEGURANÇA</span><h2>Segurança pré-sessão</h2></div><span class="status-badge status-warning">Revisão profissional</span></div>
-      <p>Revisão operacional antes da aplicação. Confira todos os itens antes de registrar. A confirmação é registrada no histórico do atendimento e não representa liberação automática pelo software.</p>
+      <p>Revisão operacional antes da aplicação. Confira todos os itens antes de registrar. A confirmação é registrada no histórico do atendimento e não substitui a avaliação nem a decisão clínica do profissional.</p>
       <div class="safety-checklist session-safety-list">
         <label class="check-row"><input type="checkbox" data-session-safety="identityConfirmed"><span>Identidade e paciente conferidos</span></label>
         <label class="check-row"><input type="checkbox" data-session-safety="objectiveReviewed"><span>Objetivo clínico revisado</span></label>
