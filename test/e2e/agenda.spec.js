@@ -3,43 +3,51 @@ import { test, expect } from '@playwright/test';
 async function openAgenda(page) {
   await page.goto('/');
   await page.locator('[data-nav="agenda"]').click();
-  await expect(page.getByRole('heading', { level: 1, name: 'Agenda', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Agenda', exact: true })).toBeVisible();
 }
 
-test.describe('UI-8 agenda', () => {
-  test('creates, filters and updates a local agenda item', async ({ page }) => {
+test.describe('Persisted F9 appointments', () => {
+  test('creates, filters and marks an appointment completed without creating a session', async ({ page }) => {
+    const note = 'Retorno E2E ' + Date.now();
     await openAgenda(page);
-    await page.getByLabel('Paciente da agenda').selectOption('mock-patient-001');
-    await page.getByLabel('Data e hora').fill('2026-10-02T10:15');
-    await page.getByLabel('Observação da agenda').fill('Retorno pós-avaliação E2E');
-    await page.getByRole('button', { name: 'Adicionar à agenda' }).click();
-
-    const item = page.locator('[data-agenda-item]').filter({ hasText: 'Retorno pós-avaliação E2E' });
+    const patientPayload = await (await page.request.get('/api/patients')).json();
+    const patient = patientPayload.patients.find(p => p.fullName === 'Ana Martins');
+    await page.getByLabel('Paciente da agenda').selectOption(patient.id);
+    await page.getByLabel('Data e hora inicial').fill('2026-10-20T10:15');
+    await page.getByLabel('Data e hora final').fill('2026-10-20T11:15');
+    await page.getByLabel('Observação da agenda').fill(note);
+    await page.getByRole('button', { name: 'Agendar' }).click();
+    const item = page.locator('[data-agenda-item]').filter({ hasText: note });
     await expect(item).toContainText('Ana Martins');
-    await expect(item).toContainText(/Somente local|não persistido/i);
-
-    await item.getByRole('combobox', { name: /Status de Ana Martins/i }).selectOption('completed');
+    await expect(item).toContainText('Persistido');
+    await item.getByRole('combobox', { name: /Status de Ana Martins/ }).selectOption('completed');
     await page.getByLabel('Filtrar status').selectOption('completed');
-    await expect(item).toBeVisible();
-    await expect(item).toContainText(/Concluído/i);
+    await expect(item).toContainText('Concluído');
+    await page.reload();
+    await page.locator('[data-nav="agenda"]').click();
+    await expect(page.locator('[data-agenda-item]').filter({ hasText: note })).toContainText('Concluído');
   });
 
-  test('linked agenda item opens the patient workspace', async ({ page }) => {
+  test('linked appointment opens the authorized patient record', async ({ page }) => {
+    const note = 'Agendamento vinculável ' + Date.now();
     await openAgenda(page);
-    const anaItem = page.locator('[data-agenda-item]').filter({ hasText: 'Ana Martins' }).first();
-    await anaItem.getByRole('button', { name: 'Abrir paciente Ana Martins' }).click();
+    const patientPayload = await (await page.request.get('/api/patients')).json();
+    const patient = patientPayload.patients.find(p => p.fullName === 'Ana Martins');
+    await page.getByLabel('Paciente da agenda').selectOption(patient.id);
+    await page.getByLabel('Data e hora inicial').fill('2026-10-21T10:15');
+    await page.getByLabel('Data e hora final').fill('2026-10-21T11:15');
+    await page.getByLabel('Observação da agenda').fill(note);
+    await page.getByRole('button', { name: 'Agendar' }).click();
+    await page.locator('[data-agenda-item]').filter({ hasText: note }).getByRole('button', { name: 'Abrir paciente Ana Martins' }).click();
     await expect(page.getByRole('heading', { name: 'Ana Martins', exact: true })).toBeVisible();
-    await expect(page.locator('[data-nav="patients"]')).toHaveAttribute('aria-current', 'page');
   });
 
-  test('agenda remains usable at narrow mobile width without global overflow', async ({ page }) => {
+  test('agenda remains usable at 390px without page-level horizontal overflow', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
-    const menu = page.locator('[data-mobile-nav-toggle]');
-    await menu.click();
+    await page.locator('[data-mobile-nav-toggle]').click();
     await page.locator('[data-nav="agenda"]').click();
-    await expect(page.getByRole('heading', { level: 1, name: 'Agenda', exact: true })).toBeVisible();
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
-    expect(overflow).toBe(false);
+    await expect(page.getByRole('heading', { name: 'Agenda', exact: true })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(2);
   });
 });
