@@ -57,7 +57,7 @@ export function createFinanceView({ gateway, getRole = () => 'admin', onChanged,
       <div class="grid cards finance-summary-grid">
         <div><strong>${escapeHtml(pack.totalSessions)}</strong><span>Total</span></div>
         <div><strong>${escapeHtml(pack.usedSessions)}</strong><span>Usadas</span></div>
-        <div><strong>${escapeHtml(pack.remainingSessions)}</strong><span>restantes</span></div>
+        <div><strong>${escapeHtml(pack.remainingSessions)}</strong><span> restantes</span></div>
         <div><strong>${escapeHtml(formatMoney(pack.totalAmountCents))}</strong><span>Valor</span></div>
       </div>
       ${canConsume ? `<div class="form-grid"><label>Sessão para consumir<select data-package-session="${escapeHtml(pack.id)}" aria-label="Sessão para consumir">${sessionOptions}</select></label></div><div class="actions"><button type="button" class="secondary" data-consume-package="${escapeHtml(pack.id)}" ${eligibleSessions.length ? '' : 'disabled'}>Consumir sessão</button></div>` : getRole() === 'admin' ? '' : '<p class="module-note">Consumo de pacote por sessão clínica fica oculto para perfis sem acesso clínico; nenhum endpoint de sessão é carregado.</p>'}
