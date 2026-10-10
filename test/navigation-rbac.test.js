@@ -12,7 +12,7 @@ function ids(items) {
 
 test('admin sees every currently implemented main route', () => {
   assert.deepEqual(ids(visiblePrimaryNavigation('admin')), [
-    'dashboard', 'patients', 'agenda', 'protocols', 'equipment', 'reports', 'settings'
+    'dashboard', 'patients', 'agenda', 'protocols', 'equipment', 'finance', 'reports', 'settings'
   ]);
   assert.deepEqual(ids(visibleSecondaryNavigation('admin')), ['sessions', 'audit']);
 });
@@ -29,7 +29,7 @@ test('professional sees clinical routes but not finance reports, audit or admini
 
 test('reception sees administrative patient directory, agenda and reports without clinical routes', () => {
   assert.deepEqual(ids(visiblePrimaryNavigation('reception')), [
-    'dashboard', 'patients', 'agenda', 'reports'
+    'dashboard', 'patients', 'agenda', 'finance', 'reports'
   ]);
   assert.deepEqual(ids(visibleSecondaryNavigation('reception')), []);
   for (const route of ['protocols', 'equipment', 'sessions', 'audit', 'settings', 'patient-workspace']) {
