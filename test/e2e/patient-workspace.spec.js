@@ -30,7 +30,7 @@ test.describe('Canonical persisted patient workspace', () => {
     await openPatient(page);
     const expected = [
       ['Anamnese', 'Anamnese clínica'], ['Protocolos', 'Protocolo em uso'],
-      ['Sessões', 'Sessão'], ['Evolução', 'Registrar evolução'],
+      ['Sessões', 'Nenhuma sessão registrada'], ['Evolução', 'Registrar evolução'],
       ['Fotos', 'Adicionar foto clínica'], ['Documentos', 'PDF'],
       ['Consentimentos', 'Consentimento informado']
     ];
