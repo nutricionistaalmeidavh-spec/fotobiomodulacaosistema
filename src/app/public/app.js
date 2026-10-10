@@ -18,7 +18,7 @@ import { createAgendaView } from './features/agenda.js';
 import { createReportsView } from './features/reports.js';
 import { createFinanceView } from './features/finance.js';
 import { createAuditView } from './features/audit.js';
-import { createPlannedRoutesView } from './features/planned-routes.js';
+import { createSettingsView } from './features/settings.js';
 import { createProtocolWorkspace } from './features/protocol-workspace.js';
 import { createF0Views } from './features/f0-views.js';
 
@@ -72,7 +72,7 @@ async function loadFoundationStatus() {
   if (badge) badge.textContent = `${state.status.phase} concluída`;
 }
 
-const plannedRoutesView = createPlannedRoutesView();
+const settingsView = createSettingsView({ gateway, onChanged: render, onMessage: showMessage });
 const dashboardView = createDashboardView({
   gateway,
   onNavigate: navigate,
@@ -125,6 +125,7 @@ async function loadRouteData(route) {
   if (route === 'agenda') return agendaView.load();
   if (route === 'reports') return reportsView.load();
   if (route === 'finance') return financeView.load();
+  if (route === 'settings') return settingsView.load();
   if (route === 'audit') return auditView.load();
   if (route === 'protocols') return protocolWorkspaceView.load();
   if (route === 'equipment') {
@@ -186,7 +187,7 @@ function render() {
     reports: reportsView.render,
     finance: financeView.render,
     audit: auditView.render,
-    settings: () => plannedRoutesView.render('settings')
+    settings: settingsView.render
   };
   const template = templates[state.currentView] || dashboardView.render;
   view.innerHTML = template();
@@ -197,6 +198,7 @@ function render() {
   protocolWorkspaceView.bindActions(view);
   reportsView.bindActions(view);
   financeView.bindActions(view);
+  settingsView.bindActions(view);
   auditView.bindActions(view);
   f0Views.bindActions(view);
 }
