@@ -39,7 +39,7 @@ test.describe('Persisted F9 appointments', () => {
     await page.getByLabel('Observação da agenda').fill(note);
     await page.getByRole('button', { name: 'Agendar' }).click();
     await page.locator('[data-agenda-item]').filter({ hasText: note }).getByRole('button', { name: 'Abrir paciente Ana Martins' }).click();
-    await expect(page.getByRole('heading', { name: 'Ana Martins', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Ana Martins', exact: true })).toBeVisible();
   });
 
   test('agenda remains usable at 390px without page-level horizontal overflow', async ({ page }) => {
