@@ -121,8 +121,8 @@ export function createPatientWorkspaceView({ gateway, onBack, onChanged, onMessa
 
   function bindActions(root = document) {
     root.querySelector('[data-workspace-back]')?.addEventListener('click', () => onBack?.());
-    root.querySelectorAll('[data-workspace-tab]').forEach((button) => button.addEventListener('click', async () => {
-      local.activeTab = button.dataset.workspaceTab;
+    const selectTab = async (tabId, focus = false) => {
+      local.activeTab = tabId;
       try {
         if (local.activeTab === 'documents') await documentsView?.load();
         if (['summary', 'protocols', 'sessions'].includes(local.activeTab)) local.patient = await gateway.getPatient(local.patientId);
@@ -130,7 +130,20 @@ export function createPatientWorkspaceView({ gateway, onBack, onChanged, onMessa
         onMessage?.(error.message);
       }
       onChanged?.();
-    }));
+      if (focus) root.querySelector(`[data-workspace-tab="${tabId}"]`)?.focus();
+    };
+    root.querySelectorAll('[data-workspace-tab]').forEach((button) => {
+      button.addEventListener('click', () => selectTab(button.dataset.workspaceTab));
+      button.addEventListener('keydown', (event) => {
+        const current = WORKSPACE_TABS.findIndex((tab) => tab.id === button.dataset.workspaceTab);
+        const next = event.key === 'ArrowRight' ? (current + 1) % WORKSPACE_TABS.length
+          : event.key === 'ArrowLeft' ? (current - 1 + WORKSPACE_TABS.length) % WORKSPACE_TABS.length
+          : event.key === 'Home' ? 0 : event.key === 'End' ? WORKSPACE_TABS.length - 1 : -1;
+        if (next < 0) return;
+        event.preventDefault();
+        selectTab(WORKSPACE_TABS[next].id, true);
+      });
+    });
     intakePanels?.bindActions(root);
     evolutionView?.bindActions(root);
     photosView?.bindActions(root);
