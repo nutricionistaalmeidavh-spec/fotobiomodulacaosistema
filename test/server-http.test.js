@@ -11,7 +11,7 @@ function cookieFrom(response) {
 
 test('HTTP app preserves protocol/session writes and audit under later composition', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pbm-http-'));
-  const app = await createAppServer({ dbFile: path.join(dir, 'app.sqlite'), port: 0 });
+  const app = await createAppServer({ dbFile: path.join(dir, 'app.sqlite'), port: 0, demoSeed: true });
   try {
     const setup = await fetch(`${app.url}/api/auth/setup`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
