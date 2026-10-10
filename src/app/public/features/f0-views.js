@@ -148,6 +148,16 @@ export function createF0Views({ state, gateway, showMessage, rerenderFresh }) {
         return;
       }
       try {
+        const checklistInputs = [...root.querySelectorAll('[data-session-safety]')];
+        if (checklistInputs.length !== 6 || checklistInputs.some((input) => !input.checked)) {
+          throw new Error('Revise e confirme os seis itens de segurança antes de registrar a sessão.');
+        }
+        const encounter = state.openEncounters.find((item) => item.id === encounterId);
+        if (!encounter?.patientId) throw new Error('Não foi possível identificar o paciente do atendimento.');
+        await gateway.updateSafetyChecklist(encounter.patientId, {
+          ...Object.fromEntries(checklistInputs.map((input) => [input.dataset.sessionSafety, input.checked])),
+          encounterId
+        });
         const point = validateBodyMapDraft(root);
         const session = await gateway.createSession({
           encounterId,
