@@ -4,7 +4,7 @@ export const MAX_LOCAL_PHOTO_BYTES = 5 * 1024 * 1024;
 
 export function validateLocalPhotoFile(file) {
   if (!file) throw new TypeError('Selecione um arquivo de imagem.');
-  if (!String(file.type || '').startsWith('image/')) throw new TypeError('Selecione um arquivo de imagem válido.');
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(String(file.type || '').toLowerCase())) throw new TypeError('Use uma imagem PNG, JPEG ou WebP.');
   if (!Number.isFinite(Number(file.size)) || Number(file.size) < 0) throw new TypeError('O tamanho do arquivo de imagem é inválido.');
   if (Number(file.size) > MAX_LOCAL_PHOTO_BYTES) throw new TypeError('A imagem local deve ter no máximo 5 MiB.');
   return file;
@@ -57,7 +57,7 @@ export function createPhotosView({ gateway, patientId, onChanged, onMessage }) {
       <section class="card">
         <div class="section-head"><div><span class="eyebrow">FOTOS</span><h2>Adicionar foto clínica</h2></div>${statusBadge('Armazenamento local', 'success')}</div>
         <p class="muted">A imagem é armazenada no diretório clínico local do sistema; nenhum upload externo é realizado.</p>
-        <label>Arquivo da foto<input type="file" accept="image/*" name="photo-file"></label>
+        <label>Arquivo da foto<input type="file" accept="image/png,image/jpeg,image/webp" name="photo-file"></label>
         <div class="form-grid">
           <label>Região fotografada<input name="photo-region" placeholder="Ex.: Ombro direito"></label>
           <label>Data da foto<input name="photo-date" type="date" value="${todayIso()}"></label>
