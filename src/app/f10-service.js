@@ -127,7 +127,7 @@ export function createF10Service(db, {
       const row = db.prepare(`SELECT * FROM clinical_safety_reviews WHERE patient_id = ?
         ORDER BY created_at DESC, rowid DESC LIMIT 1`).get(patientId);
       return row ? {
-        id: row.id, patientId: row.patient_id, actorId: row.actor_id, createdAt: row.created_at,
+        id: row.id, patientId: row.patient_id, encounterId: row.encounter_id, actorId: row.actor_id, createdAt: row.created_at,
         ...JSON.parse(row.checklist_json)
       } : {};
     },
@@ -139,24 +139,28 @@ export function createF10Service(db, {
       if (keys.some((key) => typeof input[key] !== 'boolean')) {
         throw new Error('Confirme explicitamente todos os itens do checklist C09.');
       }
+      const encounterId = input.encounterId || null;
+      if (encounterId && !db.prepare('SELECT id FROM encounters WHERE id = ? AND patient_id = ?').get(encounterId, patientId)) {
+        throw new Error('O atendimento não pertence ao paciente deste checklist.');
+      }
       const checklist = Object.fromEntries(keys.map((key) => [key, input[key]]));
       const id = randomUUID();
       const createdAt = new Date().toISOString();
       db.exec('BEGIN IMMEDIATE;');
       try {
         db.prepare(`INSERT INTO clinical_safety_reviews
-          (id, patient_id, actor_id, checklist_json, created_at) VALUES (?, ?, ?, ?, ?)`)
-          .run(id, patientId, actorId, JSON.stringify(checklist), createdAt);
+          (id, patient_id, encounter_id, actor_id, checklist_json, created_at) VALUES (?, ?, ?, ?, ?, ?)`)
+          .run(id, patientId, encounterId, actorId, JSON.stringify(checklist), createdAt);
         appendAudit(db, base, {
           action: 'clinical_safety.reviewed', entityType: 'clinical_safety_review', entityId: id,
-          actorId, payload: { patientId, checklist }
+          actorId, payload: { patientId, encounterId, checklist }
         });
         db.exec('COMMIT;');
       } catch (error) {
         db.exec('ROLLBACK;');
         throw error;
       }
-      return { id, patientId, actorId, createdAt, ...checklist };
+      return { id, patientId, encounterId, actorId, createdAt, ...checklist };
     },
 
 
