@@ -41,7 +41,7 @@ export function createClinicalIntakePanels({ gateway, patientId, onChanged, onMe
       <p class="muted">Revisão do profissional registrada no prontuário. Não representa liberação clínica automática nem substitui avaliação profissional.</p>
       <div class="safety-checklist">${SAFETY_ITEMS.map(([key, label]) => `<label class="check-row"><input type="checkbox" data-safety-key="${key}" ${checked(data[key])}><span>${escapeHtml(label)}</span></label>`).join('')}</div>
       <div class="actions"><button type="button" class="secondary" data-save-safety>Registrar revisão de segurança</button></div>
-      <p class="module-note">O C09 permanece apenas no estado da interface até a sessão ser registrada; ele não cria uma inferência clínica nem uma nova entidade persistida.</p>
+      <p class="module-note">Cada revisão C09 é salva com identificação do profissional e auditoria. A decisão de aplicar o tratamento continua sendo clínica.</p>
     </section>`;
   }
 
