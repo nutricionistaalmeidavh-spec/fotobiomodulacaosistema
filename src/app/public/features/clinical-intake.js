@@ -38,9 +38,9 @@ export function createClinicalIntakePanels({ gateway, patientId, onChanged, onMe
     const data = intake().safetyChecklist || {};
     return `<section class="card clinical-intake-card" data-c09-checklist>
       <div class="section-head"><div><span class="eyebrow">C09 · SEGURANÇA</span><h2>Checklist de segurança pré-sessão</h2></div><span class="status-badge status-warning">Revisão profissional</span></div>
-      <p class="muted">Checklist operacional transitório. O software não determina elegibilidade clínica nem substitui a avaliação profissional.</p>
+      <p class="muted">Revisão do profissional registrada no prontuário. Não representa liberação clínica automática nem substitui avaliação profissional.</p>
       <div class="safety-checklist">${SAFETY_ITEMS.map(([key, label]) => `<label class="check-row"><input type="checkbox" data-safety-key="${key}" ${checked(data[key])}><span>${escapeHtml(label)}</span></label>`).join('')}</div>
-      <div class="actions"><button type="button" class="secondary" data-save-safety>Atualizar checklist desta sessão</button></div>
+      <div class="actions"><button type="button" class="secondary" data-save-safety>Registrar revisão de segurança</button></div>
       <p class="module-note">O C09 permanece apenas no estado da interface até a sessão ser registrada; ele não cria uma inferência clínica nem uma nova entidade persistida.</p>
     </section>`;
   }
@@ -111,7 +111,7 @@ export function createClinicalIntakePanels({ gateway, patientId, onChanged, onMe
       root.querySelectorAll('[data-safety-key]').forEach((input) => { patch[input.dataset.safetyKey] = input.checked; });
       try {
         local.intake = await gateway.updateSafetyChecklist(patientId, patch);
-        onMessage?.('Checklist C09 atualizado para esta sessão de interface.', 'success');
+        onMessage?.('Revisão C09 registrada com histórico de auditoria.', 'success');
         onChanged?.();
       } catch (error) {
         onMessage?.(error.message);
