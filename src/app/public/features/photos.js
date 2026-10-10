@@ -39,7 +39,7 @@ export function createPhotosView({ gateway, patientId, onChanged, onMessage }) {
 
   function photoCard(photo) {
     return `<article class="card photo-card" data-photo-record="${escapeHtml(photo.id)}">
-      <div class="photo-preview-placeholder" aria-label="Imagem armazenada localmente">Imagem clínica armazenada</div>
+      <img class="photo-preview" src="${escapeHtml(photo.storageUrl || `/api/media/${encodeURIComponent(photo.id)}/file`)}" alt="Imagem clínica de ${escapeHtml(photo.region)} em ${escapeHtml(photo.capturedDate || 'data não informada')}" loading="lazy" decoding="async">
       <div class="section-head"><div><span class="eyebrow">FOTO CLÍNICA</span><h3>${escapeHtml(photo.region)}</h3></div>${statusBadge('Persistido', 'success')}</div>
       <p>${escapeHtml(photo.observation || 'Sem observação adicional.')}</p>
       <div class="muted">${escapeHtml(photo.capturedDate || '—')}${photo.byteSize ? ` · ${escapeHtml(String(photo.byteSize))} bytes` : ''}</div>
