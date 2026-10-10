@@ -31,10 +31,12 @@ function dataUrlPayload(dataUrl) {
 }
 
 export function createPhotosView({ gateway, patientId, onChanged, onMessage }) {
-  const local = { records: [] };
+  const local = { records: [], beforeId: null, afterId: null };
 
   async function load() {
     local.records = await gateway.listPhotos(patientId);
+    if (!local.records.some((item) => item.id === local.beforeId)) local.beforeId = local.records.at(-1)?.id || null;
+    if (!local.records.some((item) => item.id === local.afterId)) local.afterId = local.records[0]?.id || null;
   }
 
   function photoCard(photo) {
@@ -52,6 +54,29 @@ export function createPhotosView({ gateway, patientId, onChanged, onMessage }) {
     return `<div class="photo-grid">${local.records.map(photoCard).join('')}</div>`;
   }
 
+  function comparison() {
+    if (local.records.length < 2) return '';
+    const before = local.records.find((item) => item.id === local.beforeId) || local.records.at(-1);
+    const after = local.records.find((item) => item.id === local.afterId) || local.records[0];
+    const options = (selected) => local.records.map((photo) =>
+      `<option value="${escapeHtml(photo.id)}" ${photo.id === selected ? 'selected' : ''}>${escapeHtml(photo.capturedDate || 'Sem data')} · ${escapeHtml(photo.region || 'Região')}</option>`
+    ).join('');
+    const figure = (photo, label) => `<figure class="photo-comparison-item">
+      <img src="${escapeHtml(photo.storageUrl || `/api/media/${encodeURIComponent(photo.id)}/file`)}"
+        alt="${escapeHtml(label)}: ${escapeHtml(photo.region)} em ${escapeHtml(photo.capturedDate || 'data não informada')}" loading="lazy">
+      <figcaption><strong>${label}</strong> · ${escapeHtml(photo.capturedDate || 'Sem data')} · ${escapeHtml(photo.region || '')}</figcaption>
+    </figure>`;
+    return `<section class="card" aria-label="Comparação de fotografias">
+      <div class="section-head"><div><span class="eyebrow">EVOLUÇÃO VISUAL</span><h2>Comparar fotos</h2></div></div>
+      <p class="muted">Comparação descritiva. Não é uma avaliação automática de eficácia terapêutica.</p>
+      <div class="form-grid">
+        <label>Foto anterior<select data-photo-before>${options(before.id)}</select></label>
+        <label>Foto posterior<select data-photo-after>${options(after.id)}</select></label>
+      </div>
+      <div class="photo-comparison">${figure(before, 'Anterior')}${figure(after, 'Posterior')}</div>
+    </section>`;
+  }
+
   function render() {
     return `<div class="page-stack photos-workspace" data-photos-view>
       <section class="card">
@@ -66,11 +91,14 @@ export function createPhotosView({ gateway, patientId, onChanged, onMessage }) {
         <div class="module-note">Imagens até 5 MiB. O sistema valida formato, tamanho e registra hash de integridade.</div>
         <div class="actions"><button type="button" class="primary" data-add-photo>Enviar foto</button></div>
       </section>
+      ${comparison()}
       <section aria-label="Fotos clínicas">${gallery()}</section>
     </div>`;
   }
 
   function bindActions(root = document) {
+    root.querySelector('[data-photo-before]')?.addEventListener('change', (event) => { local.beforeId = event.currentTarget.value; onChanged?.(); });
+    root.querySelector('[data-photo-after]')?.addEventListener('change', (event) => { local.afterId = event.currentTarget.value; onChanged?.(); });
     root.querySelector('[data-add-photo]')?.addEventListener('click', async () => {
       try {
         const file = root.querySelector('[name="photo-file"]')?.files?.[0];
