@@ -3,6 +3,7 @@
 CREATE TABLE clinical_safety_reviews (
   id TEXT PRIMARY KEY,
   patient_id TEXT NOT NULL REFERENCES patients(id) ON DELETE RESTRICT,
+  encounter_id TEXT REFERENCES encounters(id) ON DELETE RESTRICT,
   actor_id TEXT NOT NULL REFERENCES professionals(id) ON DELETE RESTRICT,
   checklist_json TEXT NOT NULL,
   created_at TEXT NOT NULL
