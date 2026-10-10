@@ -39,9 +39,13 @@ export function createPhotosView({ gateway, patientId, onChanged, onMessage }) {
     if (!local.records.some((item) => item.id === local.afterId)) local.afterId = local.records[0]?.id || null;
   }
 
+  function photoSource(photo) {
+    return photo.storageUrl || photo.previewDataUrl || '';
+  }
+
   function photoCard(photo) {
     return `<article class="card photo-card" data-photo-record="${escapeHtml(photo.id)}">
-      <img class="photo-preview" src="${escapeHtml(photo.storageUrl || `/api/media/${encodeURIComponent(photo.id)}/file`)}" alt="Imagem clínica de ${escapeHtml(photo.region)} em ${escapeHtml(photo.capturedDate || 'data não informada')}" loading="lazy" decoding="async">
+      ${photoSource(photo) ? `<img class="photo-preview" src="${escapeHtml(photoSource(photo))}" alt="Imagem clínica de ${escapeHtml(photo.region)} em ${escapeHtml(photo.capturedDate || 'data não informada')}" loading="lazy" decoding="async">` : '<div class="photo-preview-placeholder">Pré-visualização indisponível</div>'}
       <div class="section-head"><div><span class="eyebrow">FOTO CLÍNICA</span><h3>${escapeHtml(photo.region)}</h3></div>${statusBadge('Persistido', 'success')}</div>
       <p>${escapeHtml(photo.observation || 'Sem observação adicional.')}</p>
       <div class="muted">${escapeHtml(photo.capturedDate || '—')}${photo.byteSize ? ` · ${escapeHtml(String(photo.byteSize))} bytes` : ''}</div>
@@ -62,8 +66,7 @@ export function createPhotosView({ gateway, patientId, onChanged, onMessage }) {
       `<option value="${escapeHtml(photo.id)}" ${photo.id === selected ? 'selected' : ''}>${escapeHtml(photo.capturedDate || 'Sem data')} · ${escapeHtml(photo.region || 'Região')}</option>`
     ).join('');
     const figure = (photo, label) => `<figure class="photo-comparison-item">
-      <img src="${escapeHtml(photo.storageUrl || `/api/media/${encodeURIComponent(photo.id)}/file`)}"
-        alt="${escapeHtml(label)}: ${escapeHtml(photo.region)} em ${escapeHtml(photo.capturedDate || 'data não informada')}" loading="lazy">
+      ${photoSource(photo) ? `<img src="${escapeHtml(photoSource(photo))}" alt="${escapeHtml(label)}: ${escapeHtml(photo.region)} em ${escapeHtml(photo.capturedDate || 'data não informada')}" loading="lazy">` : '<div class="photo-preview-placeholder">Imagem indisponível</div>'}
       <figcaption><strong>${label}</strong> · ${escapeHtml(photo.capturedDate || 'Sem data')} · ${escapeHtml(photo.region || '')}</figcaption>
     </figure>`;
     return `<section class="card" aria-label="Comparação de fotografias">
