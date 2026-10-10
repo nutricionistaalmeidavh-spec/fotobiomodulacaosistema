@@ -111,6 +111,7 @@ function permissionFor(method, pathname) {
   if (pathname === '/api/body-map/catalog') return 'clinical.read';
   if (pathname === '/api/patients') return method === 'GET' ? 'patients.read' : 'patients.write';
   if (/^\/api\/patients\/[^/]+$/.test(pathname) || /^\/api\/patients\/[^/]+\/archive$/.test(pathname)) return 'patients.write';
+  if (/^\/api\/media\/[^/]+\/file$/.test(pathname)) return 'clinical.read';
   if (/^\/api\/patients\/[^/]+\/safety-checklist$/.test(pathname)) return method === 'GET' ? 'clinical.read' : 'clinical.write';
   if (/^\/api\/patients\/[^/]+\/(workspace|timeline|outcome-series|body-map-points)$/.test(pathname)) return 'clinical.read';
   if (/^\/api\/patients\/[^/]+\/(outcomes|consents|media|basic-outcomes)$/.test(pathname)) return method === 'GET' ? 'clinical.read' : 'clinical.write';
@@ -260,6 +261,19 @@ export async function createAppServer({
           return sendJson(response, 201, { consent: service.revokeConsent(decodeURIComponent(revokeConsentMatch[1]), body.reason, actorId) });
         }
 
+        const mediaFileMatch = url.pathname.match(/^\/api\/media\/([^/]+)\/file$/);
+        if (mediaFileMatch && request.method === 'GET') {
+          const media = service.readClinicalImage(decodeURIComponent(mediaFileMatch[1]));
+          response.writeHead(200, {
+            'content-type': media.mimeType,
+            'content-length': media.buffer.length,
+            'cache-control': 'private, no-store',
+            'x-content-type-options': 'nosniff',
+            'content-security-policy': "default-src 'none'; sandbox"
+          });
+          response.end(media.buffer);
+          return;
+        }
         const patientMediaMatch = url.pathname.match(/^\/api\/patients\/([^/]+)\/media$/);
         if (patientMediaMatch && request.method === 'GET') return sendJson(response, 200, { media: service.listClinicalMedia(decodeURIComponent(patientMediaMatch[1])) });
         if (patientMediaMatch && request.method === 'POST') return sendJson(response, 201, { media: service.storeClinicalImage({ patientId: decodeURIComponent(patientMediaMatch[1]), ...(await readJson(request)) }, actorId) });
