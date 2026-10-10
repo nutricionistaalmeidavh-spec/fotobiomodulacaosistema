@@ -23,7 +23,7 @@ async function jsonRequest(url, { method = 'GET', cookie, body } = {}) {
 
 test('F6/F7 HTTP remains available under later composition', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pbm-f7-http-'));
-  const app = await createAppServer({ dbFile: path.join(dir, 'app.sqlite'), port: 0 });
+  const app = await createAppServer({ dbFile: path.join(dir, 'app.sqlite'), port: 0, demoSeed: true });
   try {
     const setup = await fetch(`${app.url}/api/auth/setup`, {
       method: 'POST',
