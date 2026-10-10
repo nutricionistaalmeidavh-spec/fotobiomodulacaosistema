@@ -111,15 +111,17 @@ export function renderTreatmentWorkflow({ protocols = [], sessions = [], equipme
     </section>
 
     <section class="card treatment-stage-panel" data-treatment-panel="safety" hidden>
-      <div class="section-head"><div><span class="eyebrow">2 · SEGURANÇA</span><h2>Segurança pré-sessão</h2></div><span class="status-badge status-warning">C09 local</span></div>
-      <p>Revisão operacional antes da aplicação. Este checkpoint é local de interface e não representa liberação clínica pelo software.</p>
+      <div class="section-head"><div><span class="eyebrow">2 · SEGURANÇA</span><h2>Segurança pré-sessão</h2></div><span class="status-badge status-warning">Revisão profissional</span></div>
+      <p>Revisão operacional antes da aplicação. Confira todos os itens antes de registrar. A confirmação é registrada no histórico do atendimento e não representa liberação automática pelo software.</p>
       <div class="safety-checklist session-safety-list">
-        <label class="check-row"><input type="checkbox" data-session-safety="identity"><span>Paciente e contexto confirmados</span></label>
-        <label class="check-row"><input type="checkbox" data-session-safety="precautions"><span>Precauções e informações relevantes revisadas</span></label>
-        <label class="check-row"><input type="checkbox" data-session-safety="equipment"><span>Equipamento e aplicador conferidos</span></label>
-        <label class="check-row"><input type="checkbox" data-session-safety="professional"><span>Confirmação profissional antes da aplicação</span></label>
+        <label class="check-row"><input type="checkbox" data-session-safety="identityConfirmed"><span>Identidade e paciente conferidos</span></label>
+        <label class="check-row"><input type="checkbox" data-session-safety="objectiveReviewed"><span>Objetivo clínico revisado</span></label>
+        <label class="check-row"><input type="checkbox" data-session-safety="precautionsReviewed"><span>Precauções e medicações revisadas</span></label>
+        <label class="check-row"><input type="checkbox" data-session-safety="siteReviewed"><span>Local de aplicação avaliado</span></label>
+        <label class="check-row"><input type="checkbox" data-session-safety="equipmentReviewed"><span>Equipamento e aplicador conferidos</span></label>
+        <label class="check-row"><input type="checkbox" data-session-safety="professionalConfirmed"><span>Confirmação profissional antes da aplicação</span></label>
       </div>
-      <div class="module-note">Este checklist permanece transitório e não é usado para liberação clínica automática.</div>
+      <div class="module-note">O registro fica vinculado ao paciente e ao atendimento. A decisão clínica permanece exclusivamente profissional.</div>
     </section>
 
     <section class="card treatment-stage-panel" data-treatment-panel="application" hidden>
