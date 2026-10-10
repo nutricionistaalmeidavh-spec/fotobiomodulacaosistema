@@ -31,7 +31,6 @@ function currentConsent(consents = []) {
 }
 
 export function createClinicalApiAdapter({ request = fetch } = {}) {
-  const safetyByPatient = new Map();
   const json = (path, options = {}) => apiRequest(path, { request, ...options });
 
   return {
@@ -91,9 +90,10 @@ export function createClinicalApiAdapter({ request = fetch } = {}) {
     },
 
     async getClinicalIntake(patientId) {
-      const [workspace, consentsPayload] = await Promise.all([
+      const [workspace, consentsPayload, safetyPayload] = await Promise.all([
         json(`/api/patients/${encodeURIComponent(patientId)}/workspace`),
-        json(`/api/patients/${encodeURIComponent(patientId)}/consents`)
+        json(`/api/patients/${encodeURIComponent(patientId)}/consents`),
+        json(`/api/patients/${encodeURIComponent(patientId)}/safety-checklist`)
       ]);
       const assessment = currentAssessment(workspace);
       const consents = consentsPayload.consents || [];
@@ -111,7 +111,7 @@ export function createClinicalApiAdapter({ request = fetch } = {}) {
         consent: consent || null,
         consents: persisted(consents),
         encounters: persisted(workspace.encounters || []),
-        safetyChecklist: safetyByPatient.get(patientId) || {},
+        safetyChecklist: safetyPayload.checklist || {},
         source: DATA_SOURCE.PERSISTED
       };
     },
@@ -155,7 +155,7 @@ export function createClinicalApiAdapter({ request = fetch } = {}) {
     },
 
     async updateSafetyChecklist(patientId, patch = {}) {
-      safetyByPatient.set(patientId, { ...(safetyByPatient.get(patientId) || {}), ...patch });
+      await json(`/api/patients/${encodeURIComponent(patientId)}/safety-checklist`, { method: 'POST', body: patch });
       return this.getClinicalIntake(patientId);
     },
 
