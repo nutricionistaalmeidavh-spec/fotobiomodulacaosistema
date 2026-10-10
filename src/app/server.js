@@ -111,6 +111,7 @@ function permissionFor(method, pathname) {
   if (pathname === '/api/body-map/catalog') return 'clinical.read';
   if (pathname === '/api/patients') return method === 'GET' ? 'patients.read' : 'patients.write';
   if (/^\/api\/patients\/[^/]+$/.test(pathname) || /^\/api\/patients\/[^/]+\/archive$/.test(pathname)) return 'patients.write';
+  if (/^\/api\/patients\/[^/]+\/safety-checklist$/.test(pathname)) return method === 'GET' ? 'clinical.read' : 'clinical.write';
   if (/^\/api\/patients\/[^/]+\/(workspace|timeline|outcome-series|body-map-points)$/.test(pathname)) return 'clinical.read';
   if (/^\/api\/patients\/[^/]+\/(outcomes|consents|media|basic-outcomes)$/.test(pathname)) return method === 'GET' ? 'clinical.read' : 'clinical.write';
   if (/^\/api\/patients\/[^/]+\/encounters$/.test(pathname)) return 'clinical.write';
@@ -221,6 +222,9 @@ export async function createAppServer({
         if (request.method === 'POST' && url.pathname === '/api/evidence') return sendJson(response, 201, { evidence: service.createEvidence(await readJson(request), actorId) });
         if (request.method === 'GET' && url.pathname === '/api/body-map/catalog') return sendJson(response, 200, { regions: service.getBodyMapCatalog() });
 
+        const safetyMatch = url.pathname.match(/^\/api\/patients\/([^/]+)\/safety-checklist$/);
+        if (safetyMatch && request.method === 'GET') return sendJson(response, 200, { checklist: service.getSafetyChecklist(decodeURIComponent(safetyMatch[1])) });
+        if (safetyMatch && request.method === 'POST') return sendJson(response, 201, { checklist: service.saveSafetyChecklist(decodeURIComponent(safetyMatch[1]), await readJson(request), actorId) });
         if (request.method === 'GET' && url.pathname === '/api/patients') return sendJson(response, 200, { patients: service.listPatients() });
         if (request.method === 'POST' && url.pathname === '/api/patients') return sendJson(response, 201, { patient: service.createPatient(await readJson(request), actorId) });
         const patientBodyMapMatch = url.pathname.match(/^\/api\/patients\/([^/]+)\/body-map-points$/);
