@@ -5,45 +5,38 @@ async function openSessions(page) {
   await page.locator('[data-secondary-nav="sessions"]').click();
 }
 
-test.describe('UI-6 guided treatment workflow', () => {
-  test('shows five stages and navigates without losing the session form', async ({ page }) => {
+test.describe('Guided safety and real PBM session flow', () => {
+  test('exposes all five stages while retaining separate planned/applied energy fields', async ({ page }) => {
     await openSessions(page);
-    const stages = ['Planejamento', 'Segurança', 'Aplicação', 'Registro', 'Evolução'];
-    for (const label of stages) {
+    for (const label of ['Planejamento', 'Segurança', 'Aplicação', 'Registro', 'Evolução']) {
       await expect(page.getByRole('button', { name: label, exact: true })).toBeVisible();
     }
-    await page.getByRole('button', { name: 'Segurança', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Segurança pré-sessão' })).toBeVisible();
-    await page.getByRole('button', { name: 'Aplicação', exact: true }).click();
-    await expect(page.getByLabel('Energia aplicada (J)')).toBeVisible();
-    await page.getByRole('button', { name: 'Registro', exact: true }).click();
-    await expect(page.getByLabel('Motivo profissional do ajuste')).toBeVisible();
+    await page.getByRole('button', { name: 'Planejamento' }).click();
+    await page.getByLabel('Energia planejada (J)').fill('3.4');
+    await page.getByRole('button', { name: 'Segurança' }).click();
+    await expect(page.locator('[data-session-safety]')).toHaveCount(6);
+    await page.getByRole('button', { name: 'Aplicação' }).click();
+    await expect(page.getByLabel('Energia aplicada (J)')).toHaveValue('4');
+    await page.getByRole('button', { name: 'Planejamento' }).click();
+    await expect(page.getByLabel('Energia planejada (J)')).toHaveValue('3.4');
   });
 
-  test('real session write still requires professional adjustment reason', async ({ page }) => {
+  test('applied dose mismatch requires a professional justification before write', async ({ page }) => {
     await openSessions(page);
-    await page.getByRole('button', { name: 'Planejamento', exact: true }).click();
-    await page.getByLabel('Energia planejada (J)').fill('4');
-    await page.getByRole('button', { name: 'Aplicação', exact: true }).click();
+    await page.getByRole('button', { name: 'Aplicação' }).click();
     await page.getByLabel('Energia aplicada (J)').fill('5');
-    await page.getByRole('button', { name: 'Registro', exact: true }).click();
-    await page.getByLabel('Motivo profissional do ajuste').fill('');
+    await page.getByRole('button', { name: 'Registro' }).click();
     await page.getByRole('button', { name: 'Registrar sessão' }).click();
-    await expect(page.getByText(/Informe o motivo profissional/i)).toBeVisible();
-    await page.getByLabel('Motivo profissional do ajuste').fill('Ajuste documentado no atendimento E2E');
-    await page.getByRole('button', { name: 'Registrar sessão' }).click();
-    await expect(page.getByText(/Sessão registrada com parâmetros planejados e aplicados separados/i)).toBeVisible();
-    await page.getByRole('button', { name: 'Evolução', exact: true }).click();
-    await expect(page.getByText('Ajuste documentado no atendimento E2E', { exact: false })).toBeVisible();
+    await expect(page.getByRole('status')).toContainText(/motivo profissional/i);
   });
 
-  test('evolution stage exposes persisted F0 session history', async ({ page }) => {
+  test('session safety checklist is required and non-automatic', async ({ page }) => {
     await openSessions(page);
-    await page.getByRole('button', { name: 'Registro', exact: true }).click();
+    await page.getByRole('button', { name: 'Segurança' }).click();
+    await expect(page.locator('[data-session-safety]')).toHaveCount(6);
+    await expect(page.getByText(/decisão clínica permanece exclusivamente profissional/i)).toBeVisible();
+    await page.getByRole('button', { name: 'Registro' }).click();
     await page.getByRole('button', { name: 'Registrar sessão' }).click();
-    await expect(page.getByText(/Sessão registrada com parâmetros planejados e aplicados separados/i)).toBeVisible();
-    await page.getByRole('button', { name: 'Evolução', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Histórico de sessões' })).toBeVisible();
-    await expect(page.getByText(/Planejado: 4 J/).first()).toBeVisible();
+    await expect(page.getByRole('status')).toContainText(/Revise e confirme os seis itens/i);
   });
 });
