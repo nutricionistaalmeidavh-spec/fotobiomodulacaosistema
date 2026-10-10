@@ -30,7 +30,7 @@ test('existing F0 database upgrades through F10 without losing patient rows', ()
   );
   assert.deepEqual(
     db.prepare('SELECT version FROM schema_migrations ORDER BY version').all().map((row) => row.version),
-    ['0001_f0', '0002_f1', '0003_f2', '0004_f3', '0005_f4', '0006_f5', '0007_f6', '0008_f8', '0009_f9', '0010_f10']
+    ['0001_f0', '0002_f1', '0003_f2', '0004_f3', '0005_f4', '0006_f5', '0007_f6', '0008_f8', '0009_f9', '0010_f10', '0011_clinical_safety_reviews']
   );
   db.close();
   fs.rmSync(dir, { recursive: true, force: true });
