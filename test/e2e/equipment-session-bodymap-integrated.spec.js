@@ -88,11 +88,19 @@ test('F3/F7 UI persists equipment adaptation, selected session equipment and bod
   await page.getByLabel('Coordenada Y').fill('0.45');
   await page.getByLabel('Rótulo anatômico').fill('Ombro direito anterior');
 
+  await page.getByRole('button', { name: 'Segurança', exact: true }).click();
+  for (const key of ['identityConfirmed', 'objectiveReviewed', 'precautionsReviewed',
+    'siteReviewed', 'equipmentReviewed', 'professionalConfirmed']) {
+    await page.locator('[data-session-safety="' + key + '"]').check();
+  }
   await page.getByRole('button', { name: 'Registro', exact: true }).click();
   await page.getByLabel('Motivo profissional do ajuste').fill('Ajuste registrado durante aplicação');
   await page.getByRole('button', { name: 'Registrar sessão' }).click();
   await expect(page.getByText(/Sessão registrada/)).toBeVisible();
 
+  const safety = await (await page.request.get('/api/patients/' + patient.id + '/safety-checklist')).json();
+  expect(safety.checklist.identityConfirmed).toBe(true);
+  expect(safety.checklist.encounterId).toBe(encounter.id);
   const sessionsPayload = await (await page.request.get('/api/sessions')).json();
   const createdSession = sessionsPayload.sessions.find((item) => item.encounterId === encounter.id && item.protocolVersionId === protocolVersion.id);
   expect(createdSession).toBeTruthy();
