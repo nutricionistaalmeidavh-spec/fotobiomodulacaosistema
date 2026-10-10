@@ -23,7 +23,7 @@ function jsFiles(dir) {
 test('UI foundation is split into focused reusable browser modules', () => {
   for (const file of [
     'ui/navigation.js', 'ui/primitives.js', 'features/f0-views.js', 'features/evolution.js',
-    'features/photos.js', 'features/agenda.js', 'features/reports.js', 'features/audit.js', 'features/planned-routes.js'
+    'features/photos.js', 'features/agenda.js', 'features/reports.js', 'features/audit.js', 'features/settings.js', 'features/finance.js'
   ]) {
     assert.equal(fs.existsSync(new URL(file, publicUrl)), true, `${file} should exist`);
   }
@@ -36,18 +36,21 @@ test('UI foundation is split into focused reusable browser modules', () => {
 
 test('primary navigation registry exposes the planned product routes', () => {
   const navigation = readPublic('ui/navigation.js');
-  for (const route of ['dashboard', 'patients', 'agenda', 'protocols', 'equipment', 'reports', 'settings']) {
+  for (const route of ['dashboard', 'patients', 'agenda', 'protocols', 'equipment', 'finance', 'reports', 'settings']) {
     assert.match(navigation, new RegExp(`['"]${route}['"]`));
   }
   assert.match(html, /data-mobile-nav-toggle/);
 });
 
-test('settings remains the only explicit planned primary boundary', () => {
-  const planned = readPublic('features/planned-routes.js');
-  assert.match(planned, /settings/);
-  assert.doesNotMatch(planned, /agenda:/);
-  assert.doesNotMatch(planned, /reports:/);
-  assert.match(planned, /sem simular persistência/i);
+test('settings and finance are real server-backed modules, not placeholder routes', () => {
+  const app = readPublic('app.js');
+  const settings = readPublic('features/settings.js');
+  const finance = readPublic('features/finance.js');
+  assert.match(app, /settings: settingsView\.render/);
+  assert.match(app, /finance: financeView\.render/);
+  assert.match(settings, /verifyOperationalIntegrity/);
+  assert.match(settings, /createAdminBackup/);
+  assert.match(finance, /createPayment/);
 });
 
 test('F0 clinical safety surfaces remain represented after modular extraction', () => {
@@ -65,15 +68,22 @@ test('F0 clinical safety surfaces remain represented after modular extraction', 
   assert.match(audit, /Persistido · backend F0/);
 });
 
-test('only F0ApiAdapter contains frontend API endpoints', () => {
-  const allowed = path.join(frontendRoot, 'data', 'adapters', 'f0-api-adapter.js');
+test('frontend API endpoints stay inside focused data adapters', () => {
+  const adapterRoot = path.join(frontendRoot, 'data', 'adapters');
   const offenders = jsFiles(frontendRoot)
-    .filter((file) => file !== allowed)
+    .filter((file) => !file.startsWith(`${adapterRoot}${path.sep}`))
     .filter((file) => /\/api\//.test(fs.readFileSync(file, 'utf8')));
   assert.deepEqual(offenders, []);
 
-  const adapter = fs.readFileSync(allowed, 'utf8');
-  for (const endpoint of ['/api/protocols', '/api/sessions', '/api/audit']) assert.match(adapter, new RegExp(endpoint));
+  for (const file of [
+    'data/adapters/f0-api-adapter.js',
+    'data/adapters/auth-api-adapter.js',
+    'data/adapters/clinical-api-adapter.js',
+    'data/adapters/operations-api-adapter.js',
+    'data/adapters/admin-api-adapter.js'
+  ]) {
+    assert.match(readPublic(file), /\/api\//, `${file} should own transport endpoints`);
+  }
 });
 
 test('backend-ready feature modules depend on the gateway rather than transport details', () => {

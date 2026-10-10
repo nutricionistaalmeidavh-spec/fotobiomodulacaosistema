@@ -6,7 +6,7 @@ const tempDir = path.resolve('.tmp');
 const dbFile = path.join(tempDir, 'e2e.sqlite');
 fs.mkdirSync(tempDir, { recursive: true });
 fs.rmSync(dbFile, { force: true });
-const app = await createAppServer({ dbFile, port: 8788 });
+const app = await createAppServer({ dbFile, port: 8788, demoSeed: true });
 console.log(`E2E server at ${app.url}`);
 
 async function shutdown() {

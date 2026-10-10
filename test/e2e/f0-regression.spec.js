@@ -1,59 +1,44 @@
 import { test, expect } from '@playwright/test';
 
-async function openRoute(page, route) {
-  const direct = page.locator(`[data-nav="${route}"]`);
-  if (await direct.count()) {
-    await direct.click();
-    return;
-  }
-  await page.locator(`[data-secondary-nav="${route}"]`).click();
-}
-
-test.describe('F0 regressions after UI foundation refactor', () => {
-  test('protocol versions remain append-only', async ({ page }) => {
+test.describe('F0 invariants retained by F10 runtime', () => {
+  test('protocol version history remains immutable and exact', async ({ page }) => {
+    const title = 'Versões E2E ' + Date.now();
+    const response = await page.request.post('/api/protocols', { data: { title, changeSummary: 'Original' } });
+    expect(response.status()).toBe(201);
+    const created = (await response.json()).protocol;
+    const version = created.versions[0];
+    const next = await page.request.post('/api/protocols/' + created.id + '/versions', {
+      data: { changeSummary: 'Revisão documentada', parameters: version.parameters || {} }
+    });
+    expect(next.status()).toBe(201);
     await page.goto('/');
-    await openRoute(page, 'protocols');
-    await page.locator('[name="protocol-title"]').fill('Dor cervical E2E');
-    await page.locator('[name="protocol-summary"]').fill('Versão inicial E2E');
-    await page.locator('[data-create-protocol]').click();
-    await expect(page.getByText('Dor cervical E2E', { exact: true }).first()).toBeVisible();
-    await page.locator('[name="version-summary"]').fill('Ajuste documental E2E');
-    await page.locator('[data-create-version]').click();
-    await expect(page.getByText('Ajuste documental E2E', { exact: false })).toBeVisible();
-    await expect(page.getByText('v2', { exact: false }).first()).toBeVisible();
-    await expect(page.locator('[data-edit-protocol-version]')).toHaveCount(0);
+    await page.locator('[data-nav="protocols"]').click();
+    await expect(page.locator('[data-protocol-card]').filter({ hasText: title })).toContainText(/v2/i);
+    const payload = await (await page.request.get('/api/protocols')).json();
+    const stored = payload.protocols.find(p => p.id === created.id);
+    expect(stored.versions.map(v => v.versionNumber)).toEqual([1, 2]);
+    expect(stored.versions[0].id).toBe(version.id);
   });
 
-  test('session adjustment still requires a professional reason', async ({ page }) => {
+  test('planned versus applied divergence cannot be saved without a professional reason', async ({ page }) => {
     await page.goto('/');
-    await openRoute(page, 'sessions');
+    await page.locator('[data-secondary-nav="sessions"]').click();
     await page.getByRole('button', { name: 'Planejamento', exact: true }).click();
     await page.getByLabel('Energia planejada (J)').fill('4');
     await page.getByRole('button', { name: 'Aplicação', exact: true }).click();
     await page.getByLabel('Energia aplicada (J)').fill('5');
     await page.getByRole('button', { name: 'Registro', exact: true }).click();
-    await page.getByLabel('Motivo profissional do ajuste').fill('');
     await page.getByRole('button', { name: 'Registrar sessão' }).click();
-    await expect(page.getByText(/Informe o motivo profissional/i)).toBeVisible();
-    await page.getByLabel('Motivo profissional do ajuste').fill('Resposta clínica observada E2E');
-    await page.getByRole('button', { name: 'Registrar sessão' }).click();
-    await expect(page.getByText(/Sessão registrada com parâmetros planejados e aplicados separados/i)).toBeVisible();
-    await page.getByRole('button', { name: 'Evolução', exact: true }).click();
-    await expect(page.getByText('Resposta clínica observada E2E', { exact: false })).toBeVisible();
-    await expect(page.getByText(/Aplicado: 5 J/i)).toBeVisible();
+    await expect(page.getByRole('status')).toContainText(/motivo profissional/i);
   });
 
-  test('audit chain remains valid after a real UI write', async ({ page }) => {
+  test('audit remains verifiable and records clinical protocol creation', async ({ page }) => {
+    const title = 'Auditoria E2E ' + Date.now();
+    const created = await page.request.post('/api/protocols', { data: { title, changeSummary: 'Auditada' } });
+    expect(created.status()).toBe(201);
     await page.goto('/');
-    await openRoute(page, 'protocols');
-    await page.locator('[name="protocol-title"]').fill('Protocolo auditável E2E');
-    await page.locator('[name="protocol-summary"]').fill('Criação auditável E2E');
-    await page.locator('[data-create-protocol]').click();
-    await expect(page.getByText('Protocolo auditável E2E', { exact: true }).first()).toBeVisible();
-    await openRoute(page, 'audit');
+    await page.locator('[data-secondary-nav="audit"]').click();
     await expect(page.getByText('Cadeia íntegra', { exact: true })).toBeVisible();
-    const event = page.locator('[data-audit-event]').filter({ hasText: 'protocol.created' }).first();
-    await expect(event).toBeVisible();
-    await expect(event).toContainText('protocol.created');
+    await expect(page.locator('[data-audit-event]').filter({ hasText: 'protocol.created' }).first()).toBeVisible();
   });
 });

@@ -1,42 +1,42 @@
 import { test, expect } from '@playwright/test';
 
-const tinyPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQMcAAAAASUVORK5CYII=', 'base64');
+const tinyPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
 
-async function openAnaPhotos(page) {
+async function openPhotos(page) {
   await page.goto('/');
   await page.locator('[data-nav="patients"]').click();
-  await page.getByRole('button', { name: 'Ana Martins', exact: true }).click();
+  await page.getByRole('searchbox', { name: 'Buscar pacientes' }).fill('Ana Martins');
+  await page.getByRole('button', { name: 'Ana Martins', exact: true }).first().click();
   await page.getByRole('tab', { name: 'Fotos' }).click();
 }
 
-test.describe('UI-7 photos', () => {
-  test('adds local photo preview metadata and removes only after confirmation', async ({ page }) => {
-    await openAnaPhotos(page);
+test.describe('Persisted F4 clinical images', () => {
+  test('uploads and previews a permitted clinical photo after reload', async ({ page }) => {
+    const region = 'Ombro E2E ' + Date.now();
+    await openPhotos(page);
     await page.getByLabel('Arquivo da foto').setInputFiles({ name: 'ombro.png', mimeType: 'image/png', buffer: tinyPng });
-    await page.getByLabel('Região fotografada').fill('Ombro direito');
-    await page.getByLabel('Data da foto').fill('2026-09-22');
-    await page.getByLabel('Observação da foto').fill('Vista anterior E2E');
-    await page.getByRole('button', { name: 'Adicionar foto local' }).click();
-
-    await expect(page.getByText('Ombro direito', { exact: true })).toBeVisible();
-    await expect(page.getByText(/Pré-visualização local · não enviada ao backend/i)).toBeVisible();
-    await expect(page.locator('img[alt*="Ombro direito"]')).toBeVisible();
-
-    page.once('dialog', (dialog) => dialog.dismiss());
-    await page.getByRole('button', { name: /Remover foto Ombro direito/i }).click();
-    await expect(page.getByText('Ombro direito', { exact: true })).toBeVisible();
-
-    page.once('dialog', (dialog) => dialog.accept());
-    await page.getByRole('button', { name: /Remover foto Ombro direito/i }).click();
-    await expect(page.getByText(/Nenhuma foto registrada/i)).toBeVisible();
+    await page.getByLabel('Região fotografada').fill(region);
+    await page.getByLabel('Observação da foto').fill('Fotografia armazenada no dispositivo clínico');
+    await page.getByRole('button', { name: 'Enviar foto' }).click();
+    const card = page.locator('[data-photo-record]').filter({ hasText: region });
+    await expect(card).toBeVisible();
+    await expect(card.locator('img.photo-preview')).toBeVisible();
+    await page.reload();
+    await page.locator('[data-nav="patients"]').click();
+    await page.getByRole('searchbox', { name: 'Buscar pacientes' }).fill('Ana Martins');
+    await page.getByRole('button', { name: 'Ana Martins', exact: true }).first().click();
+    await page.getByRole('tab', { name: 'Fotos' }).click();
+    await expect(page.locator('[data-photo-record]').filter({ hasText: region })).toBeVisible();
   });
 
-  test('rejects a non-image file without creating metadata', async ({ page }) => {
-    await openAnaPhotos(page);
-    await page.getByLabel('Arquivo da foto').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('not an image') });
-    await page.getByLabel('Região fotografada').fill('Ombro direito');
-    await page.getByRole('button', { name: 'Adicionar foto local' }).click();
-    await expect(page.getByRole('status')).toContainText(/imagem/i);
-    await expect(page.getByText('Ombro direito', { exact: true })).toHaveCount(0);
+  test('rejects executable/non-image files before upload', async ({ page }) => {
+    await openPhotos(page);
+    await page.getByLabel('Arquivo da foto').setInputFiles({
+      name: 'invalid.txt', mimeType: 'text/plain', buffer: Buffer.from('not image')
+    });
+    await page.getByLabel('Região fotografada').fill('Teste não permitido');
+    await page.getByRole('button', { name: 'Enviar foto' }).click();
+    await expect(page.getByRole('status').first()).toContainText(/imagem/i);
+    await expect(page.locator('[data-photo-record]').filter({ hasText: 'Teste não permitido' })).toHaveCount(0);
   });
 });

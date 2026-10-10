@@ -1,43 +1,42 @@
 import { emptyState, escapeHtml } from '../ui/primitives.js';
 
+function money(cents = 0) {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+    .format(Number(cents || 0) / 100).replace(/\u00a0/g, ' ');
+}
+
 function metric(label, value, key) {
   return `<article class="card metric-card" data-report-metric="${escapeHtml(key)}"><span class="eyebrow">${escapeHtml(label)}</span><div class="metric">${escapeHtml(value)}</div></article>`;
 }
 
 export function createReportsView({ gateway, onChanged }) {
-  const local = {
-    report: { sessionCount: 0, activePatientCount: 0, pendingFollowUpCount: 0, divergenceCount: 0, protocolUsage: [] },
-    from: '',
-    to: '',
-    error: ''
-  };
+  const local = { report: null, from: '', to: '', error: '' };
 
   async function load() {
     local.error = '';
+    if (local.from && local.to && local.to < local.from) {
+      local.error = 'Período inválido: a data final deve ser igual ou posterior à data inicial.';
+      return;
+    }
     try {
       local.report = await gateway.getOperationalReport({
         from: local.from || undefined,
         to: local.to || undefined
       });
     } catch (error) {
-      local.report = null;
       local.error = error.message;
     }
   }
 
-  function protocolUsage() {
-    if (!local.report?.protocolUsage?.length) {
-      return emptyState({ title: 'Nenhum protocolo no período', description: 'Não há sessões com protocolo disponível para o período selecionado.' });
-    }
-    return `<div class="version-list">${local.report.protocolUsage.map((item) => `<article class="version-item report-protocol-row"><strong>${escapeHtml(item.protocol)}</strong><span>${escapeHtml(item.count)} sessão${item.count === 1 ? '' : 'ões'}</span></article>`).join('')}</div>`;
-  }
-
   function render() {
-    const report = local.report || { sessionCount: 0, activePatientCount: 0, pendingFollowUpCount: 0, divergenceCount: 0, protocolUsage: [] };
+    const report = local.report;
+    const finance = report?.finance || {};
+    const appointments = report?.appointments || {};
     return `<div class="page-stack reports-view" data-reports-view>
       <div class="page-heading">
-        <div><span class="eyebrow">RELATÓRIOS</span><h1>Relatórios operacionais</h1><p>Indicadores descritivos da operação. Este módulo não calcula eficácia, não classifica tratamento e não produz recomendação clínica.</p></div>
-        <span class="status-badge status-info">Dados derivados pelo gateway</span>
+        <div><span class="eyebrow">RELATÓRIOS</span><h1>Relatórios operacionais</h1>
+          <p>Movimentações e indicadores descritivos registrados pela clínica.</p></div>
+        <span class="status-badge status-info">Dados do banco local</span>
       </div>
       <section class="card report-filters">
         <div class="section-head"><div><span class="eyebrow">PERÍODO</span><h2>Filtrar dados</h2></div></div>
@@ -47,22 +46,25 @@ export function createReportsView({ gateway, onChanged }) {
         </div>
         ${local.error ? `<div class="field-message field-error" role="alert">${escapeHtml(local.error)}</div>` : ''}
         <div class="actions"><button type="button" class="primary" data-apply-report-period>Aplicar período</button></div>
-        <p class="module-note">Relatório operacional e descritivo; não constitui avaliação de eficácia nem recomendação clínica.</p>
+        <p class="module-note">Indicadores administrativos e quantitativos, sem interpretação terapêutica automática.</p>
       </section>
+      ${report ? `
       <div class="grid cards report-metrics">
-        ${metric('Sessões no período', report.sessionCount, 'sessions')}
-        ${metric('Pacientes ativos', report.activePatientCount, 'active-patients')}
-        ${metric('Retornos pendentes', report.pendingFollowUpCount, 'pending-followups')}
-        ${metric('Divergências planejado × aplicado', report.divergenceCount, 'divergences')}
+        ${metric('Sessões no período', report.pbmSessions ?? 0, 'sessions')}
+        ${metric('Pacientes atendidos', report.patientsAttended ?? 0, 'patients-attended')}
+        ${metric('Agendamentos', appointments.total ?? 0, 'appointments')}
+        ${metric('Protocolos usados', report.protocolsUsed ?? 0, 'protocols-used')}
+        ${metric('Desfechos registrados', report.outcomesRecorded ?? 0, 'outcomes')}
+        ${metric('Receita recebida', money(finance.receivedCents), 'received-cents')}
+        ${metric('Receita pendente', money(finance.pendingCents), 'pending-cents')}
       </div>
       <section class="card">
-        <div class="section-head"><div><span class="eyebrow">PROTOCOLOS</span><h2>Uso por protocolo</h2></div><span class="status-badge status-neutral">Sessões persistidas F0</span></div>
-        ${protocolUsage()}
-      </section>
-      <section class="card report-basis">
-        <span class="eyebrow">ORIGEM DOS DADOS</span>
-        <p>Pacientes: <strong>local</strong> · Sessões: <strong>persistido</strong> · Protocolos: <strong>persistido</strong>. Um adapter futuro pode substituir a fonte sem reescrever esta tela.</p>
-      </section>
+        <div class="section-head"><div><span class="eyebrow">AGENDA</span><h2>Agendamentos por situação</h2></div></div>
+        ${Object.keys(appointments.byStatus || {}).length
+          ? `<dl class="equipment-specs">${Object.entries(appointments.byStatus).map(([status, count]) => `<div><dt>${escapeHtml(status)}</dt><dd>${escapeHtml(count)}</dd></div>`).join('')}</dl>`
+          : emptyState({ title: 'Sem agendamentos no período', description: 'Nenhum agendamento registrado com os filtros selecionados.' })}
+      </section>`
+      : emptyState({ title: 'Relatório indisponível', description: 'Confira o período e tente novamente.' })}
     </div>`;
   }
 

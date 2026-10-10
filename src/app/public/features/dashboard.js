@@ -18,14 +18,14 @@ export function createDashboardView({ gateway, onNavigate, getFoundation }) {
     const foundation = getFoundation?.() || {};
     return `<div class="page-stack" data-dashboard-view>
       <div class="page-heading">
-        <div><span class="eyebrow">DASHBOARD</span><h1>Hoje na clínica</h1><p>Resumo operacional para orientar a rotina sem depender do backend clínico ainda em evolução.</p></div>
-        <span class="status-badge status-success">UI paralela · dados por gateway</span>
+        <div><span class="eyebrow">DASHBOARD</span><h1>Hoje na clínica</h1><p>Indicadores operacionais derivados dos registros da clínica.</p></div>
+        <span class="status-badge status-success">Registros atualizados</span>
       </div>
       <div class="grid cards dashboard-metrics">
-        ${metricCard('Sessões hoje', snapshot.sessionsToday, 'Aplicações previstas no dia')}
+        ${snapshot.sessionsToday == null ? '' : metricCard('Sessões hoje', snapshot.sessionsToday, 'Aplicações registradas hoje')}
         ${metricCard('Pacientes ativos', snapshot.activePatients, 'Em acompanhamento no ciclo atual')}
-        ${metricCard('Retornos pendentes', snapshot.pendingFollowUps, 'Itens que pedem acompanhamento')}
-        ${metricCard('Protocolos recentes', snapshot.recentProtocols, 'Protocolos acessados ou revisados')}
+        ${metricCard('Retornos pendentes', snapshot.pendingFollowUps, 'Retornos agendados a partir de hoje')}
+        ${snapshot.recentProtocols == null ? '' : metricCard('Protocolos cadastrados', snapshot.recentProtocols, 'Biblioteca de protocolos disponível')}
       </div>
       <div class="grid dashboard-main-grid">
         <section class="card">
@@ -38,10 +38,10 @@ export function createDashboardView({ gateway, onNavigate, getFoundation }) {
         </section>
         <section class="card">
           <div class="section-head"><div><span class="eyebrow">ATIVIDADE RECENTE</span><h2>Movimentações</h2></div></div>
-          <div class="timeline-list">${(snapshot.recentActivity || []).map((item, index) => `<article class="timeline-row"><span class="timeline-dot" aria-hidden="true"></span><div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.detail)}</p></div><time>${escapeHtml(item.meta)}</time>${index === snapshot.recentActivity.length - 1 ? '' : '<span class="timeline-line" aria-hidden="true"></span>'}</article>`).join('')}</div>
+          <div class="timeline-list">${!snapshot.recentActivity?.length ? '<p class="muted">Nenhum agendamento registrado.</p>' : ''}${(snapshot.recentActivity || []).map((item, index) => `<article class="timeline-row"><span class="timeline-dot" aria-hidden="true"></span><div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.detail)}</p></div><time>${escapeHtml(item.meta)}</time>${index === snapshot.recentActivity.length - 1 ? '' : '<span class="timeline-line" aria-hidden="true"></span>'}</article>`).join('')}</div>
         </section>
       </div>
-      <section class="card foundation-strip">
+      <section class="card foundation-strip" hidden>
         <div><span class="eyebrow">FUNDAÇÃO CLÍNICA</span><h2>F0 concluída</h2><p>Backend local preservado durante a construção paralela da experiência de UI.</p></div>
         <div class="foundation-badges">
           <span class="status-badge status-info">${escapeHtml(foundation.tableCount ?? 19)} tabelas</span>

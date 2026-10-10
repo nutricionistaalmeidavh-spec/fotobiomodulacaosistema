@@ -6,35 +6,69 @@ export const F0_ADAPTER_METHODS = Object.freeze([
   'createProtocol',
   'createProtocolVersion',
   'listEquipment',
+  'createEquipment',
+  'updateEquipment',
+  'createApplicator',
+  'adaptProtocolVersion',
+  'listOpenEncounters',
   'listSessions',
   'createSession',
+  'recordBodyMapPoint',
+  'listPatientBodyMapPoints',
   'getAuditState'
 ]);
 
-export const LOCAL_ADAPTER_METHODS = Object.freeze([
+export const CLINICAL_ADAPTER_METHODS = Object.freeze([
   'getDashboard',
   'listPatients',
   'getPatient',
   'createPatient',
+  'updatePatient',
+  'archivePatient',
   'getClinicalIntake',
   'updateAnamnesis',
   'updateConsent',
+  'revokeConsent',
   'updateSafetyChecklist',
   'listEvolution',
   'addEvolution',
   'listPhotos',
   'addPhotoMetadata',
   'removePhotoMetadata',
-  'listAgenda',
-  'createAgendaItem',
-  'updateAgendaItem'
+  'startEncounter',
+  'listConsents',
+  'listOutcomes',
+  'listDocuments',
+  'generateEncounterPdf',
+  'listEvidence',
+  'createEvidence',
+  'listProtocolEvidence',
+  'linkEvidenceToProtocolVersion',
+  'searchClinicalProtocols',
+  'getBodyMapCatalog'
 ]);
 
-export const UI_PROVIDER_METHODS = Object.freeze([
-  'getDashboard',
-  'listPatients',
-  'getPatient',
-  'createPatient'
+export const OPERATIONS_ADAPTER_METHODS = Object.freeze([
+  'listAgenda',
+  'createAgendaItem',
+  'updateAgendaItem',
+  'listPackages',
+  'createPackage',
+  'consumePackage',
+  'listPayments',
+  'createPayment',
+  'markPaymentPaid',
+  'getOperationalReport'
+]);
+
+export const AUTH_ADAPTER_METHODS = Object.freeze([
+  'getAuthStatus', 'setupAuth', 'login', 'logout'
+]);
+
+export const ADMIN_ADAPTER_METHODS = Object.freeze([
+  'getClinic', 'updateClinic', 'listAccounts', 'createAccount', 'updateAccount',
+  'revokeAccountSessions', 'listAuthSessions', 'verifyOperationalIntegrity',
+  'createAdminBackup', 'previewRestore', 'listAuditEvents', 'listMediaRetentionCandidates'
 ]);
 
 export function assertAdapterCapabilities(name, adapter, methods) {
@@ -43,14 +77,6 @@ export function assertAdapterCapabilities(name, adapter, methods) {
     if (typeof adapter[method] !== 'function') throw new TypeError(`${name} must implement ${method}()`);
   }
   return adapter;
-}
-
-export function assertUiProvider(provider) {
-  if (!provider || typeof provider !== 'object') throw new TypeError('UI provider is required');
-  for (const method of UI_PROVIDER_METHODS) {
-    if (typeof provider[method] !== 'function') throw new TypeError(`UI provider must implement ${method}()`);
-  }
-  return provider;
 }
 
 export function cloneUiData(value) {

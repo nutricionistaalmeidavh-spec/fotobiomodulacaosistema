@@ -4,7 +4,7 @@ export const MAX_LOCAL_PHOTO_BYTES = 5 * 1024 * 1024;
 
 export function validateLocalPhotoFile(file) {
   if (!file) throw new TypeError('Selecione um arquivo de imagem.');
-  if (!String(file.type || '').startsWith('image/')) throw new TypeError('Selecione um arquivo de imagem válido.');
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(String(file.type || '').toLowerCase())) throw new TypeError('Use uma imagem PNG, JPEG ou WebP.');
   if (!Number.isFinite(Number(file.size)) || Number(file.size) < 0) throw new TypeError('O tamanho do arquivo de imagem é inválido.');
   if (Number(file.size) > MAX_LOCAL_PHOTO_BYTES) throw new TypeError('A imagem local deve ter no máximo 5 MiB.');
   return file;
@@ -24,88 +24,104 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function dataUrlPayload(dataUrl) {
+  const match = String(dataUrl || '').match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) throw new Error('Não foi possível preparar a imagem para armazenamento local.');
+  return { mimeType: match[1], dataBase64: match[2] };
+}
+
 export function createPhotosView({ gateway, patientId, onChanged, onMessage }) {
-  const local = { records: [] };
+  const local = { records: [], beforeId: null, afterId: null };
 
   async function load() {
     local.records = await gateway.listPhotos(patientId);
+    if (!local.records.some((item) => item.id === local.beforeId)) local.beforeId = local.records.at(-1)?.id || null;
+    if (!local.records.some((item) => item.id === local.afterId)) local.afterId = local.records[0]?.id || null;
+  }
+
+  function photoSource(photo) {
+    return photo.storageUrl || photo.previewDataUrl || '';
   }
 
   function photoCard(photo) {
-    const sourceText = photo.source === 'persisted' ? 'Persistido' : 'Somente local · não persistido';
-    const sourceTone = photo.source === 'persisted' ? 'success' : 'warning';
-    const preview = photo.previewDataUrl
-      ? `<img class="photo-preview" src="${escapeHtml(photo.previewDataUrl)}" alt="Foto clínica local — ${escapeHtml(photo.region)}">`
-      : '<div class="photo-preview-placeholder" aria-label="Sem pré-visualização local">Sem pré-visualização</div>';
     return `<article class="card photo-card" data-photo-record="${escapeHtml(photo.id)}">
-      ${preview}
-      <div class="section-head"><div><span class="eyebrow">FOTO CLÍNICA</span><h3>${escapeHtml(photo.region)}</h3></div>${statusBadge(sourceText, sourceTone)}</div>
+      ${photoSource(photo) ? `<img class="photo-preview" src="${escapeHtml(photoSource(photo))}" alt="Imagem clínica de ${escapeHtml(photo.region)} em ${escapeHtml(photo.capturedDate || 'data não informada')}" loading="lazy" decoding="async">` : '<div class="photo-preview-placeholder">Pré-visualização indisponível</div>'}
+      <div class="section-head"><div><span class="eyebrow">FOTO CLÍNICA</span><h3>${escapeHtml(photo.region)}</h3></div>${statusBadge('Persistido', 'success')}</div>
       <p>${escapeHtml(photo.observation || 'Sem observação adicional.')}</p>
-      <div class="muted">${escapeHtml(photo.capturedDate || '—')}${photo.sessionId ? ` · Sessão ${escapeHtml(photo.sessionId)}` : ''}</div>
-      ${photo.source === 'persisted' ? '' : '<p class="module-note">Pré-visualização local · não enviada ao backend.</p>'}
-      ${photo.source === 'persisted' ? '' : `<div class="actions"><button type="button" class="secondary" aria-label="Remover foto ${escapeHtml(photo.region)}" data-remove-photo="${escapeHtml(photo.id)}">Remover foto local</button></div>`}
+      <div class="muted">${escapeHtml(photo.capturedDate || '—')}${photo.byteSize ? ` · ${escapeHtml(String(photo.byteSize))} bytes` : ''}</div>
+      <p class="module-note">Arquivo local com metadados de integridade${photo.sha256 ? ` · SHA-256 ${escapeHtml(photo.sha256.slice(0, 12))}…` : ''}.</p>
     </article>`;
   }
 
   function gallery() {
-    if (!local.records.length) {
-      return emptyState({
-        title: 'Nenhuma foto registrada',
-        description: 'Adicione uma imagem para pré-visualização local. Nesta fase, nenhum arquivo é enviado ou persistido no backend.'
-      });
-    }
+    if (!local.records.length) return emptyState({ title: 'Nenhuma foto registrada', description: 'Adicione uma imagem clínica; o arquivo será armazenado localmente com metadados de integridade.' });
     return `<div class="photo-grid">${local.records.map(photoCard).join('')}</div>`;
+  }
+
+  function comparison() {
+    if (local.records.length < 2) return '';
+    const before = local.records.find((item) => item.id === local.beforeId) || local.records.at(-1);
+    const after = local.records.find((item) => item.id === local.afterId) || local.records[0];
+    const options = (selected) => local.records.map((photo) =>
+      `<option value="${escapeHtml(photo.id)}" ${photo.id === selected ? 'selected' : ''}>${escapeHtml(photo.capturedDate || 'Sem data')} · ${escapeHtml(photo.region || 'Região')}</option>`
+    ).join('');
+    const figure = (photo, label) => `<figure class="photo-comparison-item">
+      ${photoSource(photo) ? `<img src="${escapeHtml(photoSource(photo))}" alt="${escapeHtml(label)}: ${escapeHtml(photo.region)} em ${escapeHtml(photo.capturedDate || 'data não informada')}" loading="lazy">` : '<div class="photo-preview-placeholder">Imagem indisponível</div>'}
+      <figcaption><strong>${label}</strong> · ${escapeHtml(photo.capturedDate || 'Sem data')} · ${escapeHtml(photo.region || '')}</figcaption>
+    </figure>`;
+    return `<section class="card" aria-label="Comparação de fotografias">
+      <div class="section-head"><div><span class="eyebrow">EVOLUÇÃO VISUAL</span><h2>Comparar fotos</h2></div></div>
+      <p class="muted">Comparação descritiva. Não é uma avaliação automática de eficácia terapêutica.</p>
+      <div class="form-grid">
+        <label>Foto anterior<select data-photo-before>${options(before.id)}</select></label>
+        <label>Foto posterior<select data-photo-after>${options(after.id)}</select></label>
+      </div>
+      <div class="photo-comparison">${figure(before, 'Anterior')}${figure(after, 'Posterior')}</div>
+    </section>`;
   }
 
   function render() {
     return `<div class="page-stack photos-workspace" data-photos-view>
       <section class="card">
-        <div class="section-head"><div><span class="eyebrow">FOTOS</span><h2>Adicionar foto clínica local</h2></div><span class="status-badge status-warning">Somente local · não persistido</span></div>
-        <p class="muted">A imagem permanece apenas na memória desta sessão do navegador. Não há upload externo nem armazenamento durável nesta fase.</p>
-        <label>Arquivo da foto<input type="file" accept="image/*" name="photo-file"></label>
+        <div class="section-head"><div><span class="eyebrow">FOTOS</span><h2>Adicionar foto clínica</h2></div>${statusBadge('Armazenamento local', 'success')}</div>
+        <p class="muted">A imagem é armazenada no diretório clínico local do sistema; nenhum upload externo é realizado.</p>
+        <label>Arquivo da foto<input type="file" accept="image/png,image/jpeg,image/webp" name="photo-file"></label>
         <div class="form-grid">
           <label>Região fotografada<input name="photo-region" placeholder="Ex.: Ombro direito"></label>
           <label>Data da foto<input name="photo-date" type="date" value="${todayIso()}"></label>
         </div>
         <label>Observação da foto<textarea name="photo-observation" rows="3" placeholder="Ex.: Vista anterior"></textarea></label>
-        <div class="module-note">Formatos de imagem do navegador, até 5 MiB. Pré-visualização local não equivale a upload ou persistência clínica.</div>
-        <div class="actions"><button type="button" class="primary" data-add-photo>Adicionar foto local</button></div>
+        <div class="module-note">Imagens até 5 MiB. O sistema valida formato, tamanho e registra hash de integridade.</div>
+        <div class="actions"><button type="button" class="primary" data-add-photo>Enviar foto</button></div>
       </section>
-      <section aria-label="Fotos clínicas locais">${gallery()}</section>
+      ${comparison()}
+      <section aria-label="Fotos clínicas">${gallery()}</section>
     </div>`;
   }
 
   function bindActions(root = document) {
+    root.querySelector('[data-photo-before]')?.addEventListener('change', (event) => { local.beforeId = event.currentTarget.value; onChanged?.(); });
+    root.querySelector('[data-photo-after]')?.addEventListener('change', (event) => { local.afterId = event.currentTarget.value; onChanged?.(); });
     root.querySelector('[data-add-photo]')?.addEventListener('click', async () => {
       try {
         const file = root.querySelector('[name="photo-file"]')?.files?.[0];
-        const previewDataUrl = await readLocalPhoto(file);
+        const dataUrl = await readLocalPhoto(file);
+        const encoded = dataUrlPayload(dataUrl);
         await gateway.addPhotoMetadata(patientId, {
           capturedDate: root.querySelector('[name="photo-date"]')?.value ?? '',
           region: root.querySelector('[name="photo-region"]')?.value ?? '',
           observation: root.querySelector('[name="photo-observation"]')?.value ?? '',
-          previewDataUrl
+          originalFilename: file.name,
+          mimeType: encoded.mimeType,
+          dataBase64: encoded.dataBase64
         });
         await load();
-        onMessage?.('Foto adicionada somente à memória local; nenhum arquivo foi enviado ao backend.', 'success');
+        onMessage?.('Foto clínica armazenada localmente com integridade registrada.', 'success');
         onChanged?.();
       } catch (error) {
         onMessage?.(error.message);
       }
     });
-
-    root.querySelectorAll('[data-remove-photo]').forEach((button) => button.addEventListener('click', async () => {
-      const photoId = button.dataset.removePhoto;
-      if (!window.confirm('Remover esta foto do estado local?')) return;
-      try {
-        await gateway.removePhotoMetadata(patientId, photoId);
-        await load();
-        onMessage?.('Foto removida do estado local.', 'success');
-        onChanged?.();
-      } catch (error) {
-        onMessage?.(error.message);
-      }
-    }));
   }
 
   return { load, render, bindActions };

@@ -1,42 +1,48 @@
 import { test, expect } from '@playwright/test';
 
-async function openCarlosWorkspace(page) {
+async function openPatient(page) {
   await page.goto('/');
   await page.locator('[data-nav="patients"]').click();
-  await page.getByRole('button', { name: 'Carlos Menezes', exact: true }).click();
+  await page.getByRole('searchbox', { name: 'Buscar pacientes' }).fill('Carlos Menezes');
+  await page.getByRole('button', { name: 'Carlos Menezes', exact: true }).first().click();
 }
 
-test.describe('UI-3 clinical intake', () => {
-  test('anamnesis has structured local draft fields and C09 safety checklist', async ({ page }) => {
-    await openCarlosWorkspace(page);
-    await page.getByRole('tab', { name: 'Anamnese', exact: true }).click();
-    const panel = page.getByRole('tabpanel');
-    await expect(panel.getByLabel('Queixa principal')).toBeVisible();
-    await expect(panel.getByLabel('Objetivo do atendimento')).toBeVisible();
-    await expect(panel.getByLabel('Medicações informadas')).toBeVisible();
-    await expect(panel.locator('.clinical-intake-card').first().getByText(/não persistido/i)).toBeVisible();
-    await expect(panel.getByRole('heading', { name: 'Checklist de segurança pré-sessão' })).toBeVisible();
-    await expect(panel.getByLabel('Confirmação profissional')).toBeVisible();
+test.describe('F1 anamnesis, persistent C09 and F4 consents', () => {
+  test('anamnesis includes typed clinical fields and six safety checkpoints', async ({ page }) => {
+    await openPatient(page);
+    await page.getByRole('tab', { name: 'Anamnese' }).click();
+    for (const label of ['Queixa principal', 'Histórico clínico', 'Medicações informadas', 'Alergias', 'Precauções', 'Dor (0–10)']) {
+      await expect(page.getByLabel(label, { exact: true })).toBeVisible();
+    }
+    await expect(page.locator('[data-c09-checklist] [data-safety-key]')).toHaveCount(6);
   });
 
-  test('anamnesis draft updates only local UI state', async ({ page }) => {
-    await openCarlosWorkspace(page);
-    await page.getByRole('tab', { name: 'Anamnese', exact: true }).click();
-    const complaint = page.getByLabel('Queixa principal');
-    await complaint.fill('Queixa alterada somente na interface');
-    await page.getByRole('button', { name: 'Salvar rascunho local' }).click();
-    await expect(page.getByText(/rascunho local atualizado/i)).toBeVisible();
-    await expect(complaint).toHaveValue('Queixa alterada somente na interface');
+  test('anamnesis and safety review persist through reload', async ({ page }) => {
+    const complaint = 'Queixa persistente ' + Date.now();
+    await openPatient(page);
+    await page.getByRole('tab', { name: 'Anamnese' }).click();
+    await page.getByLabel('Queixa principal').fill(complaint);
+    await page.getByRole('button', { name: 'Salvar anamnese' }).click();
+    await expect(page.getByRole('status').first()).toContainText(/Anamnese salva/);
+    for (const input of await page.locator('[data-c09-checklist] [data-safety-key]').all()) await input.check();
+    await page.getByRole('button', { name: 'Registrar revisão de segurança' }).click();
+    await expect(page.getByRole('status').first()).toContainText(/Revisão C09 registrada/);
+    await page.reload();
+    await page.locator('[data-nav="patients"]').click();
+    await page.getByRole('searchbox', { name: 'Buscar pacientes' }).fill('Carlos Menezes');
+    await page.getByRole('button', { name: 'Carlos Menezes', exact: true }).first().click();
+    await page.getByRole('tab', { name: 'Anamnese' }).click();
+    await expect(page.getByLabel('Queixa principal')).toHaveValue(complaint);
+    await expect(page.locator('[data-c09-checklist] [data-safety-key]:checked')).toHaveCount(6);
   });
 
-  test('consent exposes explicit local simulation state', async ({ page }) => {
-    await openCarlosWorkspace(page);
-    await page.getByRole('tab', { name: 'Consentimentos', exact: true }).click();
-    const panel = page.getByRole('tabpanel');
-    await expect(panel.getByRole('heading', { name: 'Consentimento informado' })).toBeVisible();
-    await expect(panel.locator('.status-badge').getByText('Pendente', { exact: true })).toBeVisible();
-    await expect(panel.getByText(/registro local/i)).toBeVisible();
-    await page.getByRole('button', { name: 'Simular consentimento coletado' }).click();
-    await expect(panel.locator('.status-badge').getByText('Coletado localmente', { exact: true })).toBeVisible();
+  test('consent is versioned and recorded without claiming digital signature', async ({ page }) => {
+    await openPatient(page);
+    await page.getByRole('tab', { name: 'Consentimentos' }).click();
+    await expect(page.getByRole('heading', { name: 'Consentimento informado' })).toBeVisible();
+    await expect(page.getByText(/não afirma assinatura digital/i)).toBeVisible();
+    await page.getByRole('button', { name: 'Registrar aceite' }).click();
+    await expect(page.getByText('Aceito', { exact: true }).first()).toBeVisible();
+    await expect(page.locator('[data-consent-history] [data-consent-record]').first()).toBeVisible();
   });
 });
