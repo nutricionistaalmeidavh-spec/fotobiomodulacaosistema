@@ -1,21 +1,12 @@
 import { emptyState, escapeHtml } from '../ui/primitives.js';
 
-function formatMoney(cents = 0) {
-  const value = Number(cents ?? 0);
+function money(cents = 0) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
-    .format(Number.isFinite(value) ? value / 100 : 0);
+    .format(Number(cents || 0) / 100).replace(/\u00a0/g, ' ');
 }
 
 function metric(label, value, key) {
-  return `<article class="card metric-card" data-report-metric="${escapeHtml(key)}">
-    <span class="eyebrow">${escapeHtml(label)}</span>
-    <div class="metric">${escapeHtml(value)}</div>
-  </article>`;
-}
-
-function dateBoundary(value, endOfDay = false) {
-  if (!value) return undefined;
-  return `${value}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}Z`;
+  return `<article class="card metric-card" data-report-metric="${escapeHtml(key)}"><span class="eyebrow">${escapeHtml(label)}</span><div class="metric">${escapeHtml(value)}</div></article>`;
 }
 
 export function createReportsView({ gateway, onChanged }) {
@@ -23,42 +14,29 @@ export function createReportsView({ gateway, onChanged }) {
 
   async function load() {
     local.error = '';
+    if (local.from && local.to && local.to < local.from) {
+      local.error = 'Período inválido: a data final deve ser igual ou posterior à data inicial.';
+      return;
+    }
     try {
-      if (local.from && local.to && local.from > local.to) {
-        throw new Error('A data final deve ser igual ou posterior à data inicial.');
-      }
       local.report = await gateway.getOperationalReport({
-        from: dateBoundary(local.from),
-        to: dateBoundary(local.to, true)
+        from: local.from || undefined,
+        to: local.to || undefined
       });
     } catch (error) {
-      local.report = null;
-      local.error = error.message || 'Não foi possível carregar os dados do período.';
+      local.error = error.message;
     }
-  }
-
-  function operationalDetails(report) {
-    const byStatus = report.appointments?.byStatus || {};
-    return `<section class="card" aria-label="Atividade operacional">
-      <div class="section-head">
-        <div><span class="eyebrow">ROTINA DA CLÍNICA</span><h2>Atendimentos e registros</h2></div>
-      </div>
-      <div class="grid cards report-metrics">
-        ${metric('Agendamentos no período', report.appointments?.total ?? 0, 'appointments')}
-        ${metric('Agendamentos a confirmar', (byStatus.scheduled || 0) + (byStatus.confirmed || 0), 'appointments-open')}
-        ${metric('Versões de protocolo utilizadas', report.protocolsUsed ?? 0, 'protocols-used')}
-        ${metric('Registros de evolução', report.outcomesRecorded ?? 0, 'outcomes')}
-      </div>
-    </section>`;
   }
 
   function render() {
     const report = local.report;
+    const finance = report?.finance || {};
+    const appointments = report?.appointments || {};
     return `<div class="page-stack reports-view" data-reports-view>
       <div class="page-heading">
         <div><span class="eyebrow">RELATÓRIOS</span><h1>Relatórios operacionais</h1>
-          <p>Indicadores administrativos e financeiros registrados na clínica. A interpretação clínica permanece responsabilidade profissional.</p></div>
-        <span class="status-badge status-info">Dados persistidos</span>
+          <p>Movimentações e indicadores descritivos registrados pela clínica.</p></div>
+        <span class="status-badge status-info">Dados do banco local</span>
       </div>
       <section class="card report-filters">
         <div class="section-head"><div><span class="eyebrow">PERÍODO</span><h2>Filtrar dados</h2></div></div>
@@ -68,23 +46,25 @@ export function createReportsView({ gateway, onChanged }) {
         </div>
         ${local.error ? `<div class="field-message field-error" role="alert">${escapeHtml(local.error)}</div>` : ''}
         <div class="actions"><button type="button" class="primary" data-apply-report-period>Aplicar período</button></div>
+        <p class="module-note">Indicadores administrativos e quantitativos, sem interpretação terapêutica automática.</p>
       </section>
-      ${!report ? emptyState({
-        title: 'Relatório indisponível',
-        description: 'Corrija o período informado ou tente carregar os registros novamente.'
-      }) : `
-        <section class="grid cards report-metrics" aria-label="Indicadores gerais">
-          ${metric('Sessões PBM registradas', report.pbmSessions ?? 0, 'sessions')}
-          ${metric('Pacientes com agendamento', report.patientsAttended ?? 0, 'patients-attended')}
-          ${metric('Recebimentos no período', formatMoney(report.finance?.receivedCents), 'received-cents')}
-          ${metric('Cobranças pendentes', formatMoney(report.finance?.pendingCents), 'pending-cents')}
-        </section>
-        ${operationalDetails(report)}
-        <section class="card report-basis">
-          <span class="eyebrow">ORIGEM DOS DADOS</span>
-          <p>Totais calculados pelo banco clínico local. Pagamentos são informados pela equipe; esta tela não executa movimentações bancárias.</p>
-        </section>
-      `}
+      ${report ? `
+      <div class="grid cards report-metrics">
+        ${metric('Sessões no período', report.pbmSessions ?? 0, 'sessions')}
+        ${metric('Pacientes atendidos', report.patientsAttended ?? 0, 'patients-attended')}
+        ${metric('Agendamentos', appointments.total ?? 0, 'appointments')}
+        ${metric('Protocolos usados', report.protocolsUsed ?? 0, 'protocols-used')}
+        ${metric('Desfechos registrados', report.outcomesRecorded ?? 0, 'outcomes')}
+        ${metric('Receita recebida', money(finance.receivedCents), 'received-cents')}
+        ${metric('Receita pendente', money(finance.pendingCents), 'pending-cents')}
+      </div>
+      <section class="card">
+        <div class="section-head"><div><span class="eyebrow">AGENDA</span><h2>Agendamentos por situação</h2></div></div>
+        ${Object.keys(appointments.byStatus || {}).length
+          ? `<dl class="equipment-specs">${Object.entries(appointments.byStatus).map(([status, count]) => `<div><dt>${escapeHtml(status)}</dt><dd>${escapeHtml(count)}</dd></div>`).join('')}</dl>`
+          : emptyState({ title: 'Sem agendamentos no período', description: 'Nenhum agendamento registrado com os filtros selecionados.' })}
+      </section>`
+      : emptyState({ title: 'Relatório indisponível', description: 'Confira o período e tente novamente.' })}
     </div>`;
   }
 
