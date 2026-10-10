@@ -59,6 +59,9 @@ test('patient clinical workspace persists F1/F4/F5 records through reload', asyn
   await page.getByLabel('Observação da foto').fill('Vista anterior');
   await page.getByRole('button', { name: 'Enviar foto' }).click();
   await expect(page.getByText('Ombro direito', { exact: true })).toBeVisible();
+  const photoPreview = page.locator('img.photo-preview').first();
+  await expect(photoPreview).toBeVisible();
+  await expect.poll(() => photoPreview.evaluate((image) => image.complete && image.naturalWidth > 0)).toBe(true);
   await expect(page.getByText(/Persistido/).first()).toBeVisible();
 
   await page.getByRole('tab', { name: 'Documentos' }).click();
