@@ -121,6 +121,44 @@ export function createF10Service(db, {
       return { ...base.getStatus(), phase: 'F10' };
     },
 
+
+    getSafetyChecklist(patientId) {
+      if (!db.prepare('SELECT id FROM patients WHERE id = ?').get(patientId)) throw new Error('Paciente não encontrado.');
+      const row = db.prepare(`SELECT * FROM clinical_safety_reviews WHERE patient_id = ?
+        ORDER BY created_at DESC, rowid DESC LIMIT 1`).get(patientId);
+      return row ? {
+        id: row.id, patientId: row.patient_id, actorId: row.actor_id, createdAt: row.created_at,
+        ...JSON.parse(row.checklist_json)
+      } : {};
+    },
+
+    saveSafetyChecklist(patientId, input = {}, actorId = SEED_IDS.professional) {
+      if (!db.prepare('SELECT id FROM patients WHERE id = ?').get(patientId)) throw new Error('Paciente não encontrado.');
+      const keys = ['identityConfirmed', 'objectiveReviewed', 'precautionsReviewed',
+        'siteReviewed', 'equipmentReviewed', 'professionalConfirmed'];
+      if (keys.some((key) => typeof input[key] !== 'boolean')) {
+        throw new Error('Confirme explicitamente todos os itens do checklist C09.');
+      }
+      const checklist = Object.fromEntries(keys.map((key) => [key, input[key]]));
+      const id = randomUUID();
+      const createdAt = new Date().toISOString();
+      db.exec('BEGIN IMMEDIATE;');
+      try {
+        db.prepare(`INSERT INTO clinical_safety_reviews
+          (id, patient_id, actor_id, checklist_json, created_at) VALUES (?, ?, ?, ?, ?)`)
+          .run(id, patientId, actorId, JSON.stringify(checklist), createdAt);
+        appendAudit(db, base, {
+          action: 'clinical_safety.reviewed', entityType: 'clinical_safety_review', entityId: id,
+          actorId, payload: { patientId, checklist }
+        });
+        db.exec('COMMIT;');
+      } catch (error) {
+        db.exec('ROLLBACK;');
+        throw error;
+      }
+      return { id, patientId, actorId, createdAt, ...checklist };
+    },
+
     getClinic() {
       return mapClinic(db.prepare("SELECT * FROM clinics WHERE id = 'default-clinic'").get());
     },
