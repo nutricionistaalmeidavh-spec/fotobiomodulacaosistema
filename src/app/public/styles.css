@@ -149,6 +149,12 @@ textarea { min-height: 96px; resize: vertical; }
 .field-message { display: block; margin-top: 5px; font-size: 12px; }
 .field-error { color: var(--pbm-danger); }
 
+.photo-preview { display: block; width: 100%; height: 220px; object-fit: contain; background: var(--pbm-surface-subtle); border-radius: var(--pbm-radius-md); border: 1px solid var(--pbm-border); }
+.settings-accounts { display: grid; gap: 8px; margin: 12px 0 22px; }
+.settings-account { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 12px; border: 1px solid var(--pbm-border); border-radius: var(--pbm-radius-sm); }
+.settings-account .muted { overflow-wrap: anywhere; }
+.settings-view .actions { margin-top: 14px; }
+
 @media (max-width: 1080px) {
   .header-main { gap: 10px; }
   .topnav button { padding-inline: 7px; font-size: 12px; }
@@ -177,6 +183,8 @@ textarea { min-height: 96px; resize: vertical; }
   .shell { padding-top: 20px; }
   .grid.cards, .form-grid { grid-template-columns: 1fr; }
   .card { padding: 14px; }
+  .photo-preview { height: 180px; }
+  .settings-account { align-items: flex-start; }
   .section-head { flex-direction: column; }
   .version-item header, .audit-item header { align-items: flex-start; flex-direction: column; }
   .dialog-backdrop { padding: 8px; }
