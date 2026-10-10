@@ -16,6 +16,7 @@ import { createPatientsView } from './features/patients.js';
 import { createPatientWorkspaceView } from './features/patient-workspace.js';
 import { createAgendaView } from './features/agenda.js';
 import { createReportsView } from './features/reports.js';
+import { createFinanceView } from './features/finance.js';
 import { createAuditView } from './features/audit.js';
 import { createPlannedRoutesView } from './features/planned-routes.js';
 import { createProtocolWorkspace } from './features/protocol-workspace.js';
@@ -103,6 +104,7 @@ const agendaView = createAgendaView({
 });
 const protocolWorkspaceView = createProtocolWorkspace({ gateway, onChanged: render, onMessage: showMessage });
 const reportsView = createReportsView({ gateway, onChanged: render, onMessage: showMessage });
+const financeView = createFinanceView({ gateway, getRole: role, onChanged: render, onMessage: showMessage });
 const auditView = createAuditView({ gateway, onChanged: render, onMessage: showMessage });
 const f0Views = createF0Views({ state, gateway, showMessage, rerenderFresh });
 
@@ -122,6 +124,7 @@ async function loadRouteData(route) {
   if (route === 'patients') return patientsView.load();
   if (route === 'agenda') return agendaView.load();
   if (route === 'reports') return reportsView.load();
+  if (route === 'finance') return financeView.load();
   if (route === 'audit') return auditView.load();
   if (route === 'protocols') return protocolWorkspaceView.load();
   if (route === 'equipment') {
@@ -181,6 +184,7 @@ function render() {
     protocols: protocolWorkspaceView.render,
     agenda: agendaView.render,
     reports: reportsView.render,
+    finance: financeView.render,
     audit: auditView.render,
     settings: () => plannedRoutesView.render('settings')
   };
@@ -192,6 +196,7 @@ function render() {
   agendaView.bindActions(view);
   protocolWorkspaceView.bindActions(view);
   reportsView.bindActions(view);
+  financeView.bindActions(view);
   auditView.bindActions(view);
   f0Views.bindActions(view);
 }
