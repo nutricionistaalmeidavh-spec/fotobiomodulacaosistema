@@ -1,43 +1,64 @@
 import { emptyState, escapeHtml } from '../ui/primitives.js';
 
+function formatMoney(cents = 0) {
+  const value = Number(cents ?? 0);
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+    .format(Number.isFinite(value) ? value / 100 : 0);
+}
+
 function metric(label, value, key) {
-  return `<article class="card metric-card" data-report-metric="${escapeHtml(key)}"><span class="eyebrow">${escapeHtml(label)}</span><div class="metric">${escapeHtml(value)}</div></article>`;
+  return `<article class="card metric-card" data-report-metric="${escapeHtml(key)}">
+    <span class="eyebrow">${escapeHtml(label)}</span>
+    <div class="metric">${escapeHtml(value)}</div>
+  </article>`;
+}
+
+function dateBoundary(value, endOfDay = false) {
+  if (!value) return undefined;
+  return `${value}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}Z`;
 }
 
 export function createReportsView({ gateway, onChanged }) {
-  const local = {
-    report: { sessionCount: 0, activePatientCount: 0, pendingFollowUpCount: 0, divergenceCount: 0, protocolUsage: [] },
-    from: '',
-    to: '',
-    error: ''
-  };
+  const local = { report: null, from: '', to: '', error: '' };
 
   async function load() {
     local.error = '';
     try {
+      if (local.from && local.to && local.from > local.to) {
+        throw new Error('A data final deve ser igual ou posterior à data inicial.');
+      }
       local.report = await gateway.getOperationalReport({
-        from: local.from || undefined,
-        to: local.to || undefined
+        from: dateBoundary(local.from),
+        to: dateBoundary(local.to, true)
       });
     } catch (error) {
       local.report = null;
-      local.error = error.message;
+      local.error = error.message || 'Não foi possível carregar os dados do período.';
     }
   }
 
-  function protocolUsage() {
-    if (!local.report?.protocolUsage?.length) {
-      return emptyState({ title: 'Nenhum protocolo no período', description: 'Não há sessões com protocolo disponível para o período selecionado.' });
-    }
-    return `<div class="version-list">${local.report.protocolUsage.map((item) => `<article class="version-item report-protocol-row"><strong>${escapeHtml(item.protocol)}</strong><span>${escapeHtml(item.count)} sessão${item.count === 1 ? '' : 'ões'}</span></article>`).join('')}</div>`;
+  function operationalDetails(report) {
+    const byStatus = report.appointments?.byStatus || {};
+    return `<section class="card" aria-label="Atividade operacional">
+      <div class="section-head">
+        <div><span class="eyebrow">ROTINA DA CLÍNICA</span><h2>Atendimentos e registros</h2></div>
+      </div>
+      <div class="grid cards report-metrics">
+        ${metric('Agendamentos no período', report.appointments?.total ?? 0, 'appointments')}
+        ${metric('Agendamentos a confirmar', (byStatus.scheduled || 0) + (byStatus.confirmed || 0), 'appointments-open')}
+        ${metric('Versões de protocolo utilizadas', report.protocolsUsed ?? 0, 'protocols-used')}
+        ${metric('Registros de evolução', report.outcomesRecorded ?? 0, 'outcomes')}
+      </div>
+    </section>`;
   }
 
   function render() {
-    const report = local.report || { sessionCount: 0, activePatientCount: 0, pendingFollowUpCount: 0, divergenceCount: 0, protocolUsage: [] };
+    const report = local.report;
     return `<div class="page-stack reports-view" data-reports-view>
       <div class="page-heading">
-        <div><span class="eyebrow">RELATÓRIOS</span><h1>Relatórios operacionais</h1><p>Indicadores descritivos da operação. Este módulo não calcula eficácia, não classifica tratamento e não produz recomendação clínica.</p></div>
-        <span class="status-badge status-info">Dados derivados pelo gateway</span>
+        <div><span class="eyebrow">RELATÓRIOS</span><h1>Relatórios operacionais</h1>
+          <p>Indicadores administrativos e financeiros registrados na clínica. A interpretação clínica permanece responsabilidade profissional.</p></div>
+        <span class="status-badge status-info">Dados persistidos</span>
       </div>
       <section class="card report-filters">
         <div class="section-head"><div><span class="eyebrow">PERÍODO</span><h2>Filtrar dados</h2></div></div>
@@ -47,22 +68,23 @@ export function createReportsView({ gateway, onChanged }) {
         </div>
         ${local.error ? `<div class="field-message field-error" role="alert">${escapeHtml(local.error)}</div>` : ''}
         <div class="actions"><button type="button" class="primary" data-apply-report-period>Aplicar período</button></div>
-        <p class="module-note">Relatório operacional e descritivo; não constitui avaliação de eficácia nem recomendação clínica.</p>
       </section>
-      <div class="grid cards report-metrics">
-        ${metric('Sessões no período', report.sessionCount, 'sessions')}
-        ${metric('Pacientes ativos', report.activePatientCount, 'active-patients')}
-        ${metric('Retornos pendentes', report.pendingFollowUpCount, 'pending-followups')}
-        ${metric('Divergências planejado × aplicado', report.divergenceCount, 'divergences')}
-      </div>
-      <section class="card">
-        <div class="section-head"><div><span class="eyebrow">PROTOCOLOS</span><h2>Uso por protocolo</h2></div><span class="status-badge status-neutral">Sessões persistidas F0</span></div>
-        ${protocolUsage()}
-      </section>
-      <section class="card report-basis">
-        <span class="eyebrow">ORIGEM DOS DADOS</span>
-        <p>Pacientes: <strong>local</strong> · Sessões: <strong>persistido</strong> · Protocolos: <strong>persistido</strong>. Um adapter futuro pode substituir a fonte sem reescrever esta tela.</p>
-      </section>
+      ${!report ? emptyState({
+        title: 'Relatório indisponível',
+        description: 'Corrija o período informado ou tente carregar os registros novamente.'
+      }) : `
+        <section class="grid cards report-metrics" aria-label="Indicadores gerais">
+          ${metric('Sessões PBM registradas', report.pbmSessions ?? 0, 'sessions')}
+          ${metric('Pacientes com agendamento', report.patientsAttended ?? 0, 'patients-attended')}
+          ${metric('Recebimentos no período', formatMoney(report.finance?.receivedCents), 'received-cents')}
+          ${metric('Cobranças pendentes', formatMoney(report.finance?.pendingCents), 'pending-cents')}
+        </section>
+        ${operationalDetails(report)}
+        <section class="card report-basis">
+          <span class="eyebrow">ORIGEM DOS DADOS</span>
+          <p>Totais calculados pelo banco clínico local. Pagamentos são informados pela equipe; esta tela não executa movimentações bancárias.</p>
+        </section>
+      `}
     </div>`;
   }
 
