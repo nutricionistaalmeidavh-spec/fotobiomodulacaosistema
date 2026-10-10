@@ -218,7 +218,7 @@ export function createClinicalApiAdapter({ request = fetch } = {}) {
         capturedDate: String(item.capturedAt || item.createdAt || '').slice(0, 10),
         region: item.caption?.split(' — ')[0] || 'Registro clínico',
         observation: item.caption?.split(' — ').slice(1).join(' — ') || '',
-        storageUrl: item.storagePath || null
+        storageUrl: `/api/media/${encodeURIComponent(item.id)}/file`
       })));
     },
 
