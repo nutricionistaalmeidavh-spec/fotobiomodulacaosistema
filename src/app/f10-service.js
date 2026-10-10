@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { createF9Service } from './f9-service.js';
 import { hashPassword } from '../core/auth.js';
 import { createBackup, verifyBackup } from '../core/backup.js';
@@ -157,6 +157,21 @@ export function createF10Service(db, {
         throw error;
       }
       return { id, patientId, actorId, createdAt, ...checklist };
+    },
+
+
+    readClinicalImage(mediaId) {
+      const row = db.prepare('SELECT id, storage_path, sha256, mime_type FROM clinical_media WHERE id = ? AND media_type = ?')
+        .get(mediaId, 'image');
+      if (!row) throw new Error('Imagem clínica não encontrada.');
+      const root = path.resolve(roots.storageRoot);
+      const storedPath = path.resolve(row.storage_path);
+      if (!storedPath.startsWith(root + path.sep)) throw new Error('Arquivo clínico fora do diretório autorizado.');
+      if (!['image/png', 'image/jpeg', 'image/webp'].includes(row.mime_type)) throw new Error('Formato de mídia não permitido.');
+      const buffer = fs.readFileSync(storedPath);
+      const sha256 = createHash('sha256').update(buffer).digest('hex');
+      if (sha256 !== row.sha256) throw new Error('Integridade da imagem clínica não confirmada.');
+      return { buffer, mimeType: row.mime_type };
     },
 
     getClinic() {
