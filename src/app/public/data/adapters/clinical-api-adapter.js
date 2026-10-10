@@ -35,14 +35,42 @@ export function createClinicalApiAdapter({ request = fetch } = {}) {
 
   return {
     async getDashboard() {
-      const [status, patientsPayload] = await Promise.all([json('/api/status'), json('/api/patients')]);
+      const auth = await json('/api/auth/status');
+      const clinicalAccess = ['admin', 'professional'].includes(auth.user?.role);
+      const [patientsPayload, agendaPayload, sessionsPayload, protocolsPayload] = await Promise.all([
+        json('/api/patients'),
+        json('/api/appointments'),
+        clinicalAccess ? json('/api/sessions') : Promise.resolve({ sessions: [] }),
+        clinicalAccess ? json('/api/protocols') : Promise.resolve({ protocols: [] })
+      ]);
       const patients = patientsPayload.patients || [];
+      const appointments = agendaPayload.appointments || [];
+      const sessions = sessionsPayload.sessions || [];
+      const protocols = protocolsPayload.protocols || [];
+      const today = new Intl.DateTimeFormat('sv-SE').format(new Date());
+      const dateKey = (value) => {
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat('sv-SE').format(date);
+      };
+      const pendingReturns = appointments.filter((item) =>
+        item.appointmentType === 'return' &&
+        ['scheduled', 'confirmed'].includes(item.status) &&
+        dateKey(item.startsAt || item.startAt) >= today
+      );
+      const names = new Map(patients.map((item) => [item.id, item.fullName]));
+      const recentActivity = [...appointments]
+        .sort((a, b) => String(b.startsAt || b.startAt || '').localeCompare(String(a.startsAt || a.startAt || '')))
+        .slice(0, 5).map((item) => ({
+          title: item.appointmentType === 'return' ? 'Retorno agendado' : 'Agendamento',
+          detail: names.get(item.patientId) || 'Paciente',
+          meta: item.startsAt || item.startAt || ''
+        }));
       return {
-        sessionsToday: 0,
+        sessionsToday: clinicalAccess ? sessions.filter((item) => dateKey(item.startedAt) === today).length : null,
         activePatients: patients.filter((item) => item.active !== false).length,
-        pendingFollowUps: status.openEncounterCount || 0,
-        recentProtocols: 0,
-        recentActivity: [],
+        pendingFollowUps: pendingReturns.length,
+        recentProtocols: clinicalAccess ? protocols.length : null,
+        recentActivity,
         source: DATA_SOURCE.PERSISTED
       };
     },
