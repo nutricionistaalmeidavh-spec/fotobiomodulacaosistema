@@ -129,13 +129,14 @@ export async function createAppServer({
   dbFile = path.resolve('data/fotobiomodulacao.sqlite'),
   storageRoot = path.resolve('data/clinical-assets'),
   backupRoot = path.resolve('data/backups'),
-  port = 8788
+  port = 8788,
+  demoSeed = process.env.PBM_DEMO_SEED === '1'
 } = {}) {
   if (dbFile !== ':memory:') fs.mkdirSync(path.dirname(path.resolve(dbFile)), { recursive: true });
   const db = openDatabase(dbFile);
   const service = createF10Service(db, { dbFile, storageRoot, backupRoot });
   const auth = createAuthService(db);
-  service.ensureSeedData();
+  if (demoSeed) service.ensureSeedData();
 
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url, 'http://127.0.0.1');
